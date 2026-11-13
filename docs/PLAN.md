@@ -36,7 +36,7 @@ Ten dokument odpowiada na pytanie: jak jedna osoba z kontami Vercel i Supabase m
 5. **Stack:** Next.js 16 na Vercel Pro (region `fra1`), Supabase Pro w UE, media w Cloudflare R2, orkiestracja w Vercel Workflow ze sweeperem w `pg_cron`, modele przez fal.ai i Vercel AI Gateway, płatności przez Stripe (R03, R04, R05).
 6. **Zakres startowy:** 10–15 modeli i 30–50 własnych presetów zamiast 140 modeli i 1 100 presetów (R02).
 7. **Ekonomia:** 1 kredyt to ok. 0,01 USD wartości detalicznej; plany 10 / 29 / 79 USD; wkład ok. 8,9 USD na płacącego miesięcznie; próg rentowności ok. 30 płacących przy 250 USD kosztów stałych i ok. 560 przy 5 000 USD (R04, szacunek).
-8. **Bramki prawne od pierwszego dnia:** maszynowe oznaczanie każdego wyniku (AI Act art. 50), polityka „zero NSFW” (wymóg Stripe), wyraźna zgoda na przetwarzanie twarzy i głosu, spółka z o.o. przed publicznym startem (R06).
+8. **Bramki prawne od pierwszego dnia:** maszynowe oznaczanie każdego wyniku (AI Act art. 50, stosowany od 2.08.2026), polityka „zero NSFW” (wymóg Stripe, a od 2.12.2026 także zakaz z art. 5 AI Act dla systemów generujących intymne treści bez zgody), wyraźna zgoda na przetwarzanie twarzy i głosu, spółka z o.o. przed publicznym startem (R06).
 9. **Czas (szacunek dla jednej osoby na pełen etat):** zamknięta beta z płatnościami po 8–11 tygodniach, publiczny start ze studiem reklam po 15–20 tygodniach, agent z MCP i API po 21–28 tygodniach.
 10. **Od Ciebie potrzebuję ośmiu decyzji** (sekcja 15). Najważniejsze: czy akceptujesz klin „reklamy produktowe dla e-commerce”, nazwę i domenę, oraz czy funkcje z wizerunkiem i głosem realnych osób odkładamy na później.
 
@@ -60,6 +60,8 @@ Budowa funkcjonalnego odpowiednika istniejącej usługi jest legalna: idee, funk
 - Raporty w `docs/research/` opisują konkurenta wyłącznie jako materiał analityczny. Repozytorium powinno pozostać prywatne.
 - API Higgsfield nie jest źródłem podaży: ich regulamin traktuje redystrybucję dostępu deweloperskiego jako istotne naruszenie (R03).
 - Historia git jest dowodem niezależnej twórczości, więc commitujemy często i opisowo.
+
+**Uwaga o raporcie R02.** Raport opisuje katalog i strukturę danych konkurenta odczytane przez jego oficjalny konektor z Twojego konta, wyłącznie w trybie odczytu. Regulamin Higgsfield zakazuje m.in. używania wyników do trenowania modeli; brzmienia klauzul o scrapingu, reverse engineeringu i budowie produktu konkurencyjnego nie udało się potwierdzić (R06, otwarte). Dlatego: nie używamy konektora do dalszej ekstrakcji, niczego z R02 nie przenosimy do produktu, a przed publicznym startem prawnik powinien ocenić, czy raport ma zostać w repozytorium.
 
 Nazwa AIVENOVA jest w tym dokumencie nazwą roboczą. Przed zakupem domeny i startem trzeba zlecić badanie znaku (EUIPO, TMview, klasy 9, 41, 42).
 
@@ -108,6 +110,8 @@ Wniosek: pieniądze są w marketingu i w dokupywanych kredytach, a nie w samej g
 | „Unlimited” to czasowe okna na wybrane modele z terminem zakupu | R04 |
 | Cennik tylko w USD, brak polskiego interfejsu | R07 |
 | Brak natywnej aplikacji mobilnej | R01 |
+| Zarzut domyślnego treningu modeli na treściach użytkowników; wcześniejszy spór o licencję w regulaminie (07.2026) | R07, zweryfikowane |
+| Opinie w serwisach recenzji: ok. 4,0/5, skargi na zwroty, odnowienia i „unlimited” | R07, zweryfikowane |
 
 ---
 
@@ -137,11 +141,13 @@ Kliny w kolejności (ocena z R07, wnioskowanie):
 
 | # | Klin | Dlaczego | Kiedy |
 |---|---|---|---|
-| 1 | E-commerce MŚP w Polsce, potem CZ, SK, RO, HU | Najbliżej pieniędzy, najmniej lokalnej konkurencji, powtarzalna potrzeba | Etap 5 |
+| 1 | E-commerce MŚP w Polsce, potem CZ, SK, RO, HU | Najbliżej pieniędzy, mierzalny zwrot (koszt sesji zdjęciowej), powtarzalna potrzeba | Etap 5 |
 | 2 | Agencje i freelancerzy social media | Wyższy wkład na klienta, niższy churn; potrzebują workspace per klient i wspólnej puli | Etap 7 |
 | 3 | Katalog modeli i presety po polsku | Górna część lejka, SEO, wejście dla twórców | Etapy 2 i 6 |
 
-Sama lokalizacja (polski interfejs, PLN, BLIK) jest warstwą, a nie segmentem: Canva i CapCut też działają po polsku. Przewagą ma być głębia przepływu pod polski e-commerce i uczciwe rozliczenia.
+**Klin nr 1 nie jest pusty.** Weryfikacja na żywo znalazła lokalnych graczy w samych zdjęciach produktowych: UpCreator (polska platforma z cenami w PLN, pozycjonowana wprost jako polska alternatywa dla Higgsfield), generator grafik w panelu Shoper i lepiejsprzedaj.pl (R07, zweryfikowane). Zdjęcia produktowe w złotówkach same nie wystarczą. Wyróżnikiem musi być to, czego oni nie mają w komplecie: **wideo reklamowe z polskim lektorem, wybór modeli i gotowe formaty marketplace** (Allegro, Meta, TikTok), połączone w jeden przepływ od linku do zestawu reklam.
+
+Sama lokalizacja (polski interfejs, PLN, BLIK) jest warstwą, a nie segmentem: Canva i CapCut też działają po polsku. Przewagą ma być głębia przepływu pod polski e-commerce i uczciwe rozliczenia. Jeśli po rozmowach z pierwszymi partnerami klin e-commerce okaże się za ciasny, kolejność zamieniamy z klinem agencyjnym; silnik jest ten sam.
 
 ### 4.3 Co robimy inaczej niż Higgsfield
 
@@ -152,6 +158,7 @@ Sama lokalizacja (polski interfejs, PLN, BLIK) jest warstwą, a nie segmentem: C
 - Tryb wolny nazwany wprost, z limitem liczbowym, zamiast słowa „unlimited”.
 - Anulowanie subskrypcji jednym kliknięciem i funkcja odstąpienia online.
 - Mały darmowy przydział obrazów zamiast zera.
+- Brak treningu modeli na treściach klienta, zapisany w regulaminie i wymuszony flagami u dostawców.
 
 ### 4.4 Zasada kolejności
 
@@ -343,11 +350,13 @@ Tabela `model_routes` przypisuje modelowi logicznemu listę tras z kosztem i sta
 | H3 Wizerunek i głos | Oświadczenie i zapis zgody; kontrola osób publicznych | 4 |
 | H4 Odmowa dostawcy | Bez ponowienia, zwrot kredytów, licznik naruszeń | 1 |
 | H5 Wynik | Klatki wyniku do klasyfikatora | 2 |
-| H6 Pochodzenie | Manifest C2PA, niewidoczny znak, etykieta AI; podpis po ostatnim renderze | 2 (zapis), 3 (pełne) |
+| H6 Pochodzenie | Manifest C2PA, niewidoczny znak, etykieta AI; podpis po ostatnim renderze | 2 (manifest i etykieta), 3 (znak i punkt sprawdzania) |
 | H7 Publikacja | Ostrzejsza polityka i pre-moderacja przed galerią | 6 |
 | H8 Audyt | Hash promptu, flagi, decyzje, identyfikatory zgód, model i trasa | 1 |
 
 Haki otaczają wywołanie modelu, więc obejmują presety, potoki i agenta bez dodatkowego kodu. W agencie egzekwuje je kod narzędzia, nigdy prompt.
+
+Bezpłatne API moderacji OpenAI nie wystarcza jako jedyna warstwa: obrazy ocenia tylko w sześciu kategoriach, a kategorię treści seksualnych z małoletnimi obsługuje wyłącznie dla tekstu (R06, zweryfikowane). Do H2 i H5 potrzebny jest osobny klasyfikator obrazu (nagość i wiek). Wybór dostawcy jest zadaniem etapu 0; kandydaci to Hive, Sightengine i AWS Rekognition, a ich ceny i przetwarzanie w UE nie zostały jeszcze potwierdzone.
 
 ### 6.9 Decyzje drogie do odwrócenia
 
@@ -384,6 +393,23 @@ docs/                     ten plan i raporty
 ```
 
 Jedna aplikacja Next.js zamiast monorepo. Dla jednej osoby to mniej narzutu.
+
+### 6.11 Gotowe elementy open source
+
+Stan z weryfikacji R07 (odczyt repozytoriów na GitHubie):
+
+| Zasób | Licencja i stan | Jak użyć |
+|---|---|---|
+| React Flow (`xyflow`) | MIT, aktywny | Interfejs canvas w etapie 8 |
+| `nextjs/saas-starter` | MIT | Wzorzec struktury aplikacji; ledger i tak piszemy sami |
+| Tersa (`vercel-labs/tersa`) | MIT; ostatni commit 02.2026 | Inspiracja dla canvasu |
+| `fal-ai-community/video-starter-kit` | MIT; nierozwijany od 03.2025 | Tylko do wglądu |
+| `Open-Generative-AI` (dawniej „Open Higgsfield”) | MIT; zależny od resellera API | Tylko inspiracja układu; nie jako baza |
+| basejump | README deklaruje brak utrzymania | Nie używać |
+| tldraw | Wymaga płatnego klucza w produkcji | Nie używać bez licencji |
+| ComfyUI i `worker-comfyui` | GPL-3.0 i AGPL-3.0 | Nie jako zaplecze produktu |
+
+Żaden starter nie zawiera ledgera kredytów z blokadą i rozliczeniem. Tę część piszemy od zera.
 
 ---
 
@@ -520,13 +546,16 @@ Kradzione karty i farmienie darmowych kredytów spalają prawdziwy koszt u dosta
 
 ## 9. Prawo i bezpieczeństwo treści
 
-To jest materiał do planowania, a nie porada prawna. Raport R06 powstał w dużej części z wiedzy modelu i został następnie zweryfikowany punktowo; pozycje wciąż niepotwierdzone są w nim oznaczone. Miejsca wymagające prawnika wymieniam na końcu sekcji.
+To jest materiał do planowania, a nie porada prawna. Raport R06 powstał z wiedzy modelu, a potem został zweryfikowany punktowo 24 wyszukiwaniami; potwierdzenia opierają się na wynikach wyszukiwania (strony urzędowe, kancelarie, prasa branżowa), a nie na lekturze pełnych tekstów aktów. Listę pozycji potwierdzonych, skorygowanych i wciąż otwartych zawiera początek R06. Miejsca wymagające prawnika wymieniam na końcu sekcji.
 
 ### 9.1 Najważniejsze ustalenia
 
 | Obszar | Ustalenie | Skutek dla produktu |
 |---|---|---|
-| AI Act | Firma opakowująca cudze modele pod własną marką jest dostawcą systemu AI. Art. 50 stosuje się od 2.08.2026; produkt wprowadzany później nie ma okresu przejściowego. Kara do 15 mln EUR lub 3% obrotu; dla MŚP niższa z kwot. | Każdy wynik oznaczony maszynowo od dnia startu |
+| AI Act, art. 50 | Firma opakowująca cudze modele pod własną marką jest dostawcą systemu AI (wnioskowanie z definicji rozporządzenia). Art. 50 stosuje się od 2.08.2026. Rozporządzenie 2026/1744 (Digital Omnibus) dało czas do 2.12.2026 tylko systemom sprzed tej daty, więc nowy produkt nie ma okresu przejściowego. Kara do 15 mln EUR lub 3% obrotu; dla MŚP niższa z kwot. | Każdy wynik oznaczony maszynowo od pierwszego zewnętrznego użytkownika |
+| AI Act, art. 5 | Od 2.12.2026 zakazane są systemy generujące intymne treści bez zgody oraz treści seksualne z udziałem małoletnich; kary z najwyższego progu | Zabezpieczenia techniczne, nie tylko zapis w regulaminie |
+| Oznaczanie | Kodeks postępowania KE w wersji końcowej z 10.06.2026 i wytyczne do art. 50 z 20.07.2026 zakładają kilka warstw i wspólne ikony UE. Na oznaczenia dostawców nie można liczyć: w testach z 2026 pliki z API Kling i Seedance nie miały manifestu C2PA. | Własne oznaczanie dla każdego modelu; ikona UE w galerii |
+| Polska | Organem nadzoru nad AI jest KRiBSI (ustawa z 2026 r.); koordynatorem usług cyfrowych jest Prezes UKE | Wiadomo, do kogo trafiają zgłoszenia i kontrole |
 | RODO | Zdjęcia twarzy i próbki głosu użyte do tworzenia postaci lub klonowania traktujemy jak dane biometryczne (art. 9) | Wyraźna zgoda, ocena skutków, osobna retencja |
 | Transfery | Dla Chin nie ma decyzji o adekwatności; Kling i ByteDance to dostawcy z Chin | Twarze realnych osób tylko na trasy z umową powierzenia i transferem do USA lub UE |
 | DSA | Obowiązki hostingu (punkt kontaktowy, zgłoszenia, uzasadnienia decyzji) dotyczą każdego, bez względu na wielkość | Formularz zgłoszeń i rejestr decyzji przed startem |
@@ -534,6 +563,10 @@ To jest materiał do planowania, a nie porada prawna. Raport R06 powstał w duż
 | USA | TAKE IT DOWN Act: usunięcie intymnych treści bez zgody w 48 h od zgłoszenia | Kolejka z licznikiem czasu, jeśli obsługujemy użytkowników z USA |
 | UE | Nakaz usunięcia treści terrorystycznych: 1 godzina | Kontakt alarmowy |
 | Prawa autorskie | Wynik bez twórczego wkładu człowieka najpewniej nie ma ochrony; agregatory nie dają ochrony przed roszczeniami | Regulamin nie gwarantuje praw autorskich do wyników |
+| Konsument | Dyrektywa 2023/2673 wymaga funkcji odstąpienia online od 19.06.2026; Polska nie wdrożyła jej w terminie (projekt w konsultacjach we wrześniu 2026) | Funkcję budujemy mimo to |
+| KSeF | Obowiązek wystawiania faktur B2B wchodzi etapami (1.02.2026, 1.04.2026, 1.01.2027 dla najmniejszych); obowiązek odbierania faktur w KSeF dotyczy wszystkich przedsiębiorców od 1.02.2026 | Księgowość z obsługą KSeF od początku |
+
+Wciąż otwarte, do rozstrzygnięcia z prawnikiem: czy dostawca systemu może polegać na oznaczeniach dostawcy modelu; czy TAKE IT DOWN Act stosuje się do serwisu spoza USA; czy wyłączenie odpowiedzialności hostingu obejmuje treści wygenerowane przez własny system; kwalifikacja embeddingu tożsamości i modelu głosu jako danych biometrycznych.
 
 ### 9.2 Bramki
 
@@ -682,9 +715,10 @@ Czas to szacunek dla jednej osoby na pełen etat, pracującej z asystentem kodow
 - Enhancer promptów: jedno wywołanie Claude ze structured output, przewodniki dla 3–4 rodzin modeli, tłumaczenie z polskiego, podgląd zmian z cofnięciem, 30 promptów regresyjnych na model.
 - Presety typu przepis i styl; panel z testowym uruchomieniem; 15–20 własnych presetów.
 - Narzędzia: upscale obrazu, usuwanie tła.
-- Hak H5; zapis pochodzenia (H6 w wersji podstawowej).
+- Hak H5.
+- Oznaczanie wyników (H6) w wersji podstawowej: zapis pochodzenia, manifest C2PA i etykieta AI. Musi działać, zanim pierwszy zewnętrzny tester dostanie wynik, bo art. 50 AI Act nie przewiduje wyjątku dla wersji alfa.
 
-**Wyjście:** dziesięciu zewnętrznych testerów wykonuje pięć zadań bez pomocy. Każde nieudane zadanie ma automatyczny zwrot widoczny w rejestrze.
+**Wyjście:** dziesięciu zewnętrznych testerów wykonuje pięć zadań bez pomocy. Każde nieudane zadanie ma automatyczny zwrot widoczny w rejestrze. Każdy plik wynikowy ma manifest pochodzenia.
 
 ### Etap 3: Monetyzacja i zamknięta beta (2–3 tygodnie)
 
@@ -692,7 +726,7 @@ Czas to szacunek dla jednej osoby na pełen etat, pracującej z asystentem kodow
 - Plany: limity równoległości, dostęp do modeli, rollover, auto-doładowanie z limitem, zasady planu darmowego.
 - Kontrole antyfraudowe z sekcji 8.5.
 - Dokumenty i ścieżki prawne z bramki „przed zamkniętą betą”.
-- Pełne oznaczanie wyników (H6).
+- Pełne oznaczanie wyników (H6): niewidoczny znak wodny i publiczny punkt sprawdzania pochodzenia, obok manifestu z etapu 2.
 - Strona główna, cennik z kalkulatorem „ile to generacji”, linki udostępniania, PWA.
 - Ustawienia rozliczeń: rejestr kredytów z linkiem do zadania, faktury, anulowanie jednym kliknięciem.
 
@@ -779,7 +813,7 @@ Przy wkładzie ok. 8,9 USD na płacącego miesięcznie i churnie 10–15% dopusz
 | Krótkie wideo | Treści zrobione produktem na TikTok, Reels, X |
 | Partnerzy e-commerce | Platformy sklepowe i ich sklepy z aplikacjami |
 | Sprzedaż bezpośrednia | Agencje i freelancerzy social media |
-| Polecenia | Kredyty po pierwszej płatności poleconego; afiliacja najwyżej 10% przez 12 miesięcy albo stała premia 10–15 USD |
+| Polecenia | Kredyty po pierwszej płatności poleconego; afiliacja najwyżej 10% przez 12 miesięcy albo stała premia 10–15 USD. Higgsfield płaci afiliantom do 25% przez 12 miesięcy (R07, zweryfikowane); tej stawki nasza marża nie udźwignie, więc nie licytujemy się o afiliantów |
 
 ### 12.3 Czego nie robimy
 
@@ -928,7 +962,7 @@ Po 14 dniach powinien działać pierwszy obraz wygenerowany od promptu do biblio
 | [R03](research/03-dostawcy-modeli-i-api.md) | Dostawcy modeli, ceny, warunki | Katalog AI Gateway na żywo; część cen ze źródeł wtórnych |
 | [R04](research/04-ekonomia-cennik-platnosci.md) | Cennik, ekonomia jednostkowa, płatności, ledger | Wyszukiwanie na żywo; model ekonomiczny to szacunek |
 | [R05](research/05-architektura-i-stack.md) | Stack i architektura | Częściowo na żywo, potem weryfikacja punktowa |
-| [R06](research/06-prawo-compliance-bezpieczenstwo-tresci.md) | Prawo, compliance, moderacja | Z wiedzy modelu, potem weryfikacja punktowa |
-| [R07](research/07-konkurencja-pozycjonowanie-gtm.md) | Konkurencja, pozycjonowanie, wejście na rynek | Z wiedzy modelu, potem weryfikacja punktowa |
+| [R06](research/06-prawo-compliance-bezpieczenstwo-tresci.md) | Prawo, compliance, moderacja | Z wiedzy modelu, potem 24 wyszukiwania weryfikacyjne; lista otwartych pozycji na początku raportu |
+| [R07](research/07-konkurencja-pozycjonowanie-gtm.md) | Konkurencja, pozycjonowanie, wejście na rynek | Z wiedzy modelu, potem 26 wyszukiwań weryfikacyjnych; ceny konkurentów ze źródeł wtórnych |
 | [R08](research/08-ux-architektura-informacji.md) | UX, sitemapa, komponenty | Bez żywego przeglądu interfejsów |
 | [R09](research/09-receptury-funkcji-i-pipeline.md) | Receptury 13 funkcji, graf zależności | Dokumentacja Vercel i Supabase na żywo; endpointy fal niezweryfikowane |
