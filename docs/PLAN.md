@@ -211,9 +211,9 @@ Pełny parytet 1:1 nie jest celem. Celem jest, żeby użytkownik mógł wykonać
 | Komponent | Wybór | Dlaczego |
 |---|---|---|
 | Framework | Next.js 16.4, React 19, TypeScript | Aktualna stabilna linia (R05) |
-| Hosting | Vercel Pro, funkcje w `fra1` | Konto już jest; domyślny region to `iad1`, trzeba go zmienić |
+| Hosting | Vercel Pro, funkcje w `fra1` | Konto już jest; domyślny region to `iad1`, trzeba go zmienić. Plan Hobby zabrania użycia komercyjnego, więc Pro jest potrzebne od pierwszego płacącego (R05, zweryfikowane) |
 | Baza, Auth, Realtime | Supabase Pro, region UE | RLS, `pg_cron`, brak pauzowania projektu |
-| Orkiestracja | Vercel Workflow i niezależny sweeper w `pg_cron` | Jeden deploy; trwałe kroki i oczekiwanie na webhook |
+| Orkiestracja | Vercel Workflow i niezależny sweeper w `pg_cron` | Jeden deploy; trwałe kroki i oczekiwanie na webhook. Workflow jest ogólnie dostępny od 16.04.2026 (R05, zweryfikowane); cennik po wyjściu z bety do sprawdzenia w panelu |
 | Media | Cloudflare R2 z własną subdomeną | Zerowy koszt transferu wychodzącego |
 | Przetwarzanie mediów | `sharp` w funkcji Vercel (obrazy), ffmpeg w Vercel Sandbox (wideo) | Izolacja od sekretów aplikacji |
 | Modele | Własne adaptery: fal.ai, Vercel AI Gateway, Replicate jako zapas | Trasa per model, przełączanie bez zmian w kodzie |
@@ -222,7 +222,7 @@ Pełny parytet 1:1 nie jest celem. Celem jest, żeby użytkownik mógł wykonać
 | Anty-abuse | Vercel Firewall, BotID, limity w Postgres | Bez dodatkowego dostawcy |
 | Błędy i analityka | Sentry, PostHog w chmurze UE | Standard; cenniki do potwierdzenia |
 | Wyszukiwanie | Postgres FTS i `pgvector` | Wystarcza do ok. miliona wpisów galerii |
-| i18n | `next-intl`, segment `[locale]` (pl, en) | Polskie formy mnogie przez ICU |
+| i18n | `next-intl`, segment `[locale]` (pl, en) | Polskie formy mnogie przez ICU. Zgodność z nowym modelem cache w Next.js 16 jest częściowa, więc w etapie 0 potrzebna jest krótka próba (R05, zweryfikowane) |
 | Mobile | PWA | Higgsfield też nie ma aplikacji natywnej |
 
 Istniejących projektów Supabase nie używamy ponownie: zakładamy nowy projekt na planie Pro w regionie UE, bo region bazy jest drogi do zmiany, a projekt na planie Free pauzuje się po 7 dniach bezczynności (R05).
@@ -324,9 +324,15 @@ Adapter normalizuje (R03):
 
 Tabela `model_routes` przypisuje modelowi logicznemu listę tras z kosztem i stanem zdrowia. Cennik kredytów liczymy od ceny trasy, nie od modelu.
 
+Trzy fakty o fal.ai, które kształtują adapter (R05, zweryfikowane w dokumentacji fal):
+
+- Zgłoszenie do kolejki nie ma klucza idempotencji. Zapisujemy `request_id` zaraz po odpowiedzi, deduplikujemy webhooki po nim, a podwójne zlecenia wyłapuje rekoncyliacja.
+- Wynik czeka w kolejce godzinę, a pliki wyjściowe wygasają. Pobranie do R2 musi nastąpić natychmiast.
+- Rozdzielczość podajemy zawsze jawnie. Kling 4.0 na fal domyślnie generuje 1080p, czyli ok. 50% drożej niż 720p.
+
 ### 6.6 Media
 
-- **Trzy buckety R2:** `uploads-private`, `outputs-private`, `public`.
+- **Trzy buckety R2:** `uploads-private`, `outputs-private`, `public`. Podpisane adresy R2 działają tylko na domenie API S3, bez CDN; prywatne pliki serwujemy więc krótkimi podpisanymi adresami, a galerię publiczną przez własną subdomenę z cache (R05, zweryfikowane).
 - **Upload użytkownika** w trzech krokach: podpisany adres, wysyłka prosto do storage, potwierdzenie. Po potwierdzeniu: sprawdzenie sygnatury pliku, `ffprobe` w sandboxie, przekodowanie obrazu (usuwa EXIF i dane GPS), moderacja. Plik staje się referencją dopiero ze statusem `clean`.
 - **Miniatury:** 2–3 stałe warianty WebP tworzone raz przy pobraniu wyniku.
 - **Wideo:** MP4 z `faststart` i żądaniami zakresu. HLS dopiero dla treści dłuższych niż ok. minuta.
@@ -356,7 +362,7 @@ Tabela `model_routes` przypisuje modelowi logicznemu listę tras z kosztem i sta
 
 Haki otaczają wywołanie modelu, więc obejmują presety, potoki i agenta bez dodatkowego kodu. W agencie egzekwuje je kod narzędzia, nigdy prompt.
 
-Bezpłatne API moderacji OpenAI nie wystarcza jako jedyna warstwa: obrazy ocenia tylko w sześciu kategoriach, a kategorię treści seksualnych z małoletnimi obsługuje wyłącznie dla tekstu (R06, zweryfikowane). Do H2 i H5 potrzebny jest osobny klasyfikator obrazu (nagość i wiek). Wybór dostawcy jest zadaniem etapu 0; kandydaci to Hive, Sightengine i AWS Rekognition, a ich ceny i przetwarzanie w UE nie zostały jeszcze potwierdzone.
+Bezpłatne API moderacji OpenAI nie wystarcza jako jedyna warstwa: obrazy ocenia tylko w sześciu kategoriach, a kategorię treści seksualnych z małoletnimi obsługuje wyłącznie dla tekstu (R06, zweryfikowane). Do H2 i H5 potrzebny jest osobny klasyfikator obrazu (nagość i wiek). Punkt wyjścia: API OpenAI jako pierwszy sygnał i Sightengine (firma z Francji, obsługuje wideo, ok. 1 USD za 1 000 obrazów, plany od ok. 29 USD miesięcznie) jako drugi; osobno dopasowywanie skrótów znanych treści z udziałem małoletnich (R05, źródła wtórne). Przed wyborem trzeba sprawdzić umowę powierzenia, region przetwarzania i cenę detekcji wieku; to zadanie etapu 0.
 
 ### 6.9 Decyzje drogie do odwrócenia
 
@@ -421,7 +427,7 @@ Stan z weryfikacji R07 (odczyt repozytoriów na GitHubie):
 
 | Rola | Dostawca | Co przez niego |
 |---|---|---|
-| Katalogowy | fal.ai | Kling 4.0, lipsync, upscale, usuwanie tła, trening LoRA, długi ogon |
+| Katalogowy | fal.ai | Kling 4.0, lipsync, mówiące awatary, dźwięk do niemego wideo, upscale, usuwanie tła, relight, trening LoRA, długi ogon. Kling 4.0 i Seedream 5.5 nie ma w AI Gateway, więc adapter fal jest potrzebny od etapu 1 |
 | Cenowy | Vercel AI Gateway | Seedance, Veo, Nano Banana, GPT Image, FLUX 3, Wan 3.0, ElevenLabs |
 | Zapasowy | Replicate | Po przeczytaniu klauzuli o udostępnianiu usług w modelu SaaS |
 | Później | Umowy bezpośrednie (BytePlus, Kling, Vertex AI) | Gdy wolumen uzasadni pakiety i rabaty |
@@ -685,6 +691,8 @@ Czas to szacunek dla jednej osoby na pełen etat, pracującej z asystentem kodow
 - Konta: nowy projekt Supabase Pro w UE, projekt Vercel z regionem `fra1`, Cloudflare R2, fal.ai z doładowaniem, klucz AI Gateway z budżetem, Stripe, Sentry, PostHog EU, dostawca e-mail.
 - Dzień próbny z sekcji 7.4.
 - Wybór księgowego obsługującego OSS i KSeF.
+- Wybór dostawcy moderacji obrazu i wideo (sekcja 6.8).
+- Krótka próba `next-intl` z modelem cache Next.js 16.
 - Ręczne przejście referencji i konkurentów.
 - `CLAUDE.md` z konwencjami projektu i zasadą clean room; szkielet CI.
 
@@ -883,12 +891,12 @@ Jeśli użytkownicy zużywają 100% kredytów, wkład spada do ok. 3,8 USD i pro
 | 5 | Naruszenie AI Act, RODO albo treści nielegalne w serwisie | Kary, odpowiedzialność karna | Bramki z sekcji 9.2, moderacja warstwowa, prawnik przed startem |
 | 6 | Roszczenia konkurenta | Koszty prawne, zmiana marki | Clean room, własna tożsamość, badanie znaku |
 | 7 | Zakres za duży dla jednej osoby | Płytki produkt, wypalenie | Kryteria wyjścia etapów, funkcje jako dane, twarda lista „poza planem” |
-| 8 | Młode komponenty: Vercel Workflow, wideo w AI Gateway, Realtime Broadcast | Awaria potoku | Interfejsy, sweeper, polling, własne adaptery |
+| 8 | Komponenty w becie: wideo w AI Gateway (eksperymentalne), Realtime Broadcast z bazy, Vercel Queues | Awaria potoku albo zmiana interfejsu | Interfejsy, sweeper, polling, własne adaptery |
 | 9 | Wykorzystanie kredytów wyższe niż założone | Wkład spada z 8,9 do 3,8 USD | Formuła dodatnia przy 100%; rabat roczny najwyżej 20% |
 | 10 | Higgsfield doda polski interfejs i ceny regionalne | Znika klin lokalizacyjny | Głębia przepływu pod polski e-commerce, wsparcie, faktury, partnerzy |
 | 11 | Presety to treść, a nie kod | Stały koszt produkcji | Stały czas w tygodniu; panel dla osoby nietechnicznej |
 | 12 | Koszty w USD, przychody w PLN i EUR | Wahania marży | Cennik PLN korygowany kwartalnie; reguły cen w konfiguracji |
-| 13 | Podwójne zlecenie u dostawcy po awarii | Koszt bez przychodu | Klucze idempotencji, rekoncyliacja |
+| 13 | Podwójne zlecenie u dostawcy po awarii (fal nie ma klucza idempotencji) | Koszt bez przychodu | Zapis identyfikatora zlecenia przed potwierdzeniem, klucze idempotencji tam, gdzie są, rekoncyliacja |
 | 14 | Dane w raportach ze źródeł wtórnych | Błędne założenia cenowe | Dzień próbny; etap weryfikacji prawnej |
 
 ---
@@ -961,8 +969,8 @@ Po 14 dniach powinien działać pierwszy obraz wygenerowany od promptu do biblio
 | [R02](research/02-katalog-modeli-i-presetow.md) | Katalog modeli i presetów, kształt danych, szkic encji | Odczyt z konta, tylko do odczytu |
 | [R03](research/03-dostawcy-modeli-i-api.md) | Dostawcy modeli, ceny, warunki | Katalog AI Gateway na żywo; część cen ze źródeł wtórnych |
 | [R04](research/04-ekonomia-cennik-platnosci.md) | Cennik, ekonomia jednostkowa, płatności, ledger | Wyszukiwanie na żywo; model ekonomiczny to szacunek |
-| [R05](research/05-architektura-i-stack.md) | Stack i architektura | Częściowo na żywo, potem weryfikacja punktowa |
+| [R05](research/05-architektura-i-stack.md) | Stack i architektura | Częściowo na żywo, potem weryfikacja w dokumentacji Vercel i Supabase oraz 24 wyszukiwania |
 | [R06](research/06-prawo-compliance-bezpieczenstwo-tresci.md) | Prawo, compliance, moderacja | Z wiedzy modelu, potem 24 wyszukiwania weryfikacyjne; lista otwartych pozycji na początku raportu |
 | [R07](research/07-konkurencja-pozycjonowanie-gtm.md) | Konkurencja, pozycjonowanie, wejście na rynek | Z wiedzy modelu, potem 26 wyszukiwań weryfikacyjnych; ceny konkurentów ze źródeł wtórnych |
 | [R08](research/08-ux-architektura-informacji.md) | UX, sitemapa, komponenty | Bez żywego przeglądu interfejsów |
-| [R09](research/09-receptury-funkcji-i-pipeline.md) | Receptury 13 funkcji, graf zależności | Dokumentacja Vercel i Supabase na żywo; endpointy fal niezweryfikowane |
+| [R09](research/09-receptury-funkcji-i-pipeline.md) | Receptury 13 funkcji, graf zależności | Dokumentacja Vercel i Supabase na żywo; ceny wybranych endpointów fal potwierdzone w weryfikacji, czasy generacji nadal niezmierzone |

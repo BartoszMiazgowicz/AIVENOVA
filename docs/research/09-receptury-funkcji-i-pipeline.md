@@ -4,6 +4,21 @@
 
 Tagi: **[zweryfikowane]** = źródło odczytane dziś albo fakt ze źródłem w raporcie równoległym (oznaczenie R02, R03, R05, R06); **[wnioskowanie]** = mój projekt lub rachunek; **[niepewne]** = wiedza modelu sprzed połowy 2026 bez dzisiejszego potwierdzenia. Dotyczy to zwłaszcza identyfikatorów endpointów fal.ai i narzędzi niszowych; przed implementacją trzeba je sprawdzić u źródła.
 
+## Weryfikacja na żywo (2026-11-13)
+
+Drugi przebieg: katalog AI Gateway i dokumentacja Vercel/Supabase przez MCP oraz wyszukiwanie WebSearch (budżet 24 zapytań wspólny z R05). Większość cen fal pochodzi ze stron modeli fal (`fal.ai/models/...`) w wynikach wyszukiwania, bez otwierania stron (WebFetch zablokowany), więc przed budżetowaniem potwierdzić na `fal.ai/pricing`.
+
+**Potwierdzone:**
+- Kling 4.0 i Seedream 5.5 **nie ma w katalogu AI Gateway** (najnowsze: `klingai/kling-v3.0-*`, `bytedance/seedream-5.0-pro`); Seedance 2.5 jest, z ceną za tokeny wideo (10,7 USD/1M tokenów dla 480p i 720p, 11,7 dla 1080p; z wejściem wideo 6,4 / 7,0), nie za sekundę [zweryfikowane: katalog MCP].
+- Kolejka fal: brak dedykowanego klucza idempotencji przy submit; webhooki mogą być ponawiane, więc deduplikacja po `request_id` i szybkie 200; wynik w kolejce trzymany 1 h; pliki wyników publiczne i wygasają wg ustawień (`X-Fal-Object-Lifecycle-Preference`); `X-Fal-No-Retry: 1` wyłącza ponowienia po błędzie runnera ([queue][fal-queue], [webhooki][fal-webhooks]).
+- Endpointy fal z cenami: lipsync, awatary, video-to-audio, interpolacja, relight, usuwanie tła wideo, reframe obrazu, trening LoRA (tabele w sekcjach 3, 6, 7, 8).
+- ElevenLabs Scribe v2 zwraca znaczniki czasu słów (`timestamps_granularity="word"`, także `character`) i diaryzację ([docs][el-stt]).
+- Supabase OAuth 2.1 Server: beta, bezpłatny w becie na wszystkich planach ([docs][sb-oauth]).
+
+**Skorygowane:** Kling 4.0 na fal kosztuje wg źródła wtórnego ok. $0.157/s (720p) i $0.235/s (1080p, domyślna rozdzielczość fal), z natywnym audio ([porównanie][kling4-fal]); ceny Seedance 2.5 w AI Gateway są tokenowe (sekcja 0).
+
+**Nadal otwarte:** Seedream 5.5 i Seedance 2.5 na fal (ceny nie znalezione; Seedream 5.5 u Segmind $0.021-0.037 za obraz [segmind-s55]); dedykowany endpoint reframe wideo na fal; warunki ElevenLabs dla osadzania TTS, klonowania i dubbingu w produkcie sprzedawanym użytkownikom (znalazłem tylko streszczenia wtórne); harmonogram ponowień webhooków fal; billing nieudanych generacji w AI Gateway.
+
 ## TL;DR
 
 - **Większość "magii" to dziś jedno wywołanie modelu wielozadaniowego.** Seedance 2.5, Kling 3.0, Wan 3.0, MiniMax H3 i Veo 3.1 mają w jednym API: image-to-video, pierwszą i ostatnią klatkę, referencje, natywne audio, a część także edycję wideo i przedłużanie [zweryfikowane][gw]. Budować trzeba 5 abstrakcji, nie 13 funkcji.
@@ -23,14 +38,14 @@ Odczyt katalogu AI Gateway z 2026-11-13 [zweryfikowane][gw]. Ceny listowe za sek
 |---|---|---|---|---|---|
 | `klingai/kling-v3.0-i2v` / `-t2v` | I2V, first-last-frame, reference-to-video, multi-shot | 3-15 s | tak | 3 obrazy (jpg/png, do 10 MB); prompt do 2500 znaków | $0.168-0.392 |
 | `klingai/kling-v3.0-motion-control` | transfer ruchu | 3-30 s | nie | 1 obraz + 1 wideo (3-30 s, do 100 MB) | $0.126 / $0.168 |
-| `bytedance/seedance-2.5` | T2V, I2V, FLF, referencje, edycja wideo, extend | 4-30 s | tak | 30 obrazów, 10 wideo (2-30 s), audio 2-30 s; tylko URL | $0.103 / $0.231 / $0.569 (480/720/1080p) |
+| `bytedance/seedance-2.5` | T2V, I2V, FLF, referencje, edycja wideo, extend | 4-30 s | tak | 30 obrazów, 10 wideo (2-30 s), audio 2-30 s; tylko URL | $0.103 / $0.231 / $0.569 (480/720/1080p, przeliczenie); katalog 13.11.2026 podaje cenę tokenową: $10.7/1M tokenów (480p, 720p), $11.7 (1080p), z wejściem wideo $6.4 / $7.0, z minimalną liczbą tokenów zależną od długości [zweryfikowane][gw] |
 | `google/veo-3.1-generate-001` (+Fast, Lite) | T2V, I2V, FLF, referencje, extend | 4, 6, 8 s | tak | 3 obrazy; tylko 16:9 i 9:16 | $0.20 / $0.40 z audio; Fast $0.10 / $0.15 |
 | `alibaba/wan-v3.0-video` | T2V, I2V, FLF, referencje (obraz, wideo, audio) | 2-30 s | tak | 10 obrazów, 5 wideo (1-15 s), audio 1-15 s; prompt do 20 000 znaków | $0.05 / $0.10 / $0.20 |
 | `minimax/minimax-h3` | T2V, I2V, FLF, referencje | 4-15 s | tak | 9 obrazów, 3 wideo, audio 2-15 s | $0.08 (768p), $0.13 (2K) |
 | `bfl/flux-3-video` | T2V, I2V, FLF, extend | 5-20 s | tak | 10 obrazów, 1 wideo | brak w katalogu |
 | `heygen/heygen-video-1` | T2V, I2V, referencje; zsynchronizowany dialog | 5-15 s | tak | 9 obrazów, 3 wideo (do 5 s) | $0.01-0.05; referencje $0.035-0.09 |
 
-Kling 4.0 jest na fal, ale nie w AI Gateway [zweryfikowane: R03]; jego parametrów dziś nie sprawdziłem.
+Kling 4.0 jest na fal, ale nie w AI Gateway (katalog 13.11.2026 [zweryfikowane][gw]). Na fal ok. $0.157/s w 720p i $0.235/s w 1080p; fal domyślnie generuje 1080p, więc bez jawnego `resolution` 30 s kosztuje $7.05 zamiast $4.71; natywne audio w cenie; referencje wideo droższe [zweryfikowane wtórnie][kling4-fal]. Kling 4.0 Flash: nie znalazłem ceny [niepewne]. Pozostałe parametry Kling 4.0 (czasy, limity referencji) nie sprawdzone.
 
 **Latencja.** Katalog nie podaje latencji (pola puste). Dokumentacja zaleca timeout pollingu co najmniej 600 000 ms i mówi o "kilku minutach" na wideo [zweryfikowane][gw-t2v]. Wartości orientacyjne dla całego raportu [niepewne]: obraz 5-40 s; klip wideo 1-5 min; TTS 1-5 s; muzyka 10-60 s; lipsync i upscale wideo kilka razy dłużej niż trwa materiał; trening LoRA 2-30 min; 3D 0,5-5 min. Przed ustawieniem timeoutów zmierzyć na własnym ruchu.
 
@@ -106,7 +121,7 @@ Kling 4.0 jest na fal, ale nie w AI Gateway [zweryfikowane: R03]; jego parametr�
 |---|---|---|---|
 | Referencje w modelu obrazu | Nano Banana 2.1 ($0.034-0.05), Nano Banana Pro ($0.134; do 14 referencji wg definicji w katalogu Higgsfield), Seedream 5.0 ($0.035), FLUX 3 ($0.048) [zweryfikowane][gw], [R02] | natychmiast | dryf przy nietypowych kątach |
 | Referencje w modelu wideo | limity z sekcji 0; w Kling `inputReferences` nie łączy się z klatką startową [zweryfikowane][gw-r2v] | cena klipu | Seedance 2.x blokuje twarze realnych osób bez weryfikacji; Veo w UE tylko `allow_adult` [zweryfikowane: R03] |
-| LoRA per użytkownik | fal `flux-lora-fast-training` ok. $2 za 1000 kroków; FLUX.2 [dev] trainer $0.008/krok; Z-Image $2.26/1000; Replicate ok. $1.46/1000 [zweryfikowane: R03] | 10-30 zdjęć; 2-30 min [niepewne] | tylko modele z otwartymi wagami, więc nie Nano Banana ani Kling; licencja modelu bazowego; przechowywanie wag |
+| LoRA per użytkownik | fal `flux-lora-fast-training` ok. $2 za 1000 kroków ([przewodnik fal][fal-flux-ft], potwierdzone 13.11.2026); FLUX.2 [dev] trainer $0.008/krok; Z-Image $2.26/1000; Replicate ok. $1.46/1000 [zweryfikowane: R03]; LoRA wideo: `fal-ai/wan-22-trainer/t2v-a14b` $0.004/krok (min. 100), i2v ok. $0.005/krok, czyli $4-5 za 1000 kroków ([fal][fal-wan-trainer], [przewodnik][fal-wan-ft]) [zweryfikowane] | 10-30 zdjęć; 2-30 min [niepewne] | tylko modele z otwartymi wagami, więc nie Nano Banana ani Kling; licencja modelu bazowego; przechowywanie wag |
 
 **Rekomendacja:** MVP na referencjach, LoRA jako opcja "Pro" w fazie 2 [wnioskowanie].
 
@@ -127,7 +142,8 @@ Kling 4.0 jest na fal, ale nie w AI Gateway [zweryfikowane: R03]; jego parametr�
 | Multi-shot | Kling 3.0+: `multiShot: true`, `shotType: 'customize'`, `multiPrompt[]` z czasem ujęć; Seedance 2.5 i Wan 3.0: do 30 s z podziałem ujęć w treści promptu | Kling [zweryfikowane][gw-t2v]; reszta [wnioskowanie] |
 | Przedłużanie | operacja extend w Seedance 2.5 (w przód i wstecz [R02]), Veo 3.1, FLUX 3; dla pozostałych: ostatnia klatka przez ffmpeg, I2V, sklejenie | [zweryfikowane][gw]; fallback daje widoczny szew |
 | Natywne audio | `generateAudio: true`; w Kling 3.0 dopłata 50%, w Veo 3.1 cena x2 | [zweryfikowane][gw] |
-| Tryb asynchroniczny | `experimental_startVideo` z `webhookUrl`, potem `experimental_getVideoStatus`; własny nagłówek `idempotency-key`; `ai@7.0.50+` | [zweryfikowane][gw-video] |
+| Tryb asynchroniczny | `experimental_startVideo` z `webhookUrl`, potem `experimental_getVideoStatus`; własny nagłówek `idempotency-key`; `ai@7.0.50+`; webhook niesie tylko `video.generation.completed`, `.failed`, `.cancelled` z `jobId`, bez URL-a wyniku | [zweryfikowane][gw-video] |
+| Tryb asynchroniczny (fal) | kolejka fal: submit bez klucza idempotencji (deduplikacja po `request_id` po własnej stronie: zapisać `request_id` przed potwierdzeniem zadania), webhook może przyjść ponownie, wynik w kolejce 1 h, pliki wygasają wg `X-Fal-Object-Lifecycle-Preference`, więc ingest od razu do R2 | [zweryfikowane][fal-queue] |
 
 **Koszt klipu 5 s w 720p (lista):** Wan 3.0 $0.50; H3 $0.40 (768p); Kling 3.0 std $0.84 (fal $0.42 [R03]); Seedance 2.5 $1.16. Veo 3.1 Fast 8 s z audio $1.20; Veo 3.1 Lite $0.40 [zweryfikowane][gw].
 
@@ -154,15 +170,15 @@ Kling 4.0 jest na fal, ale nie w AI Gateway [zweryfikowane: R03]; jego parametr�
 | TTS | `generateSpeech`; ElevenLabs v4 lub v3 $0.08 za 1k znaków, v4 Turbo $0.04; Fish S2.1 Pro i OpenAI TTS-1 $0.015 [zweryfikowane][gw] | 500 znaków: $0.02-0.04 | S |
 | Efekty dźwiękowe | `elevenlabs/sound-effects-v2`, `durationSeconds` [zweryfikowane][gw-tts] | $0.002/s | S |
 | Muzyka | `elevenlabs/music-v2.5`, `musicLengthMs`, bez streamingu [zweryfikowane][gw-tts] | $0.0025/s | S |
-| Audio do niemego wideo | (a) modele video-to-audio na fal (MMAudio, ThinkSound, Mirelo) [niepewne]; (b) własne: 4-8 klatek do Claude vision, brief, efekty i muzyka, `amix` + `loudnorm` | (b) ok. $0.07 za 10 s [wnioskowanie] | M |
-| Lipsync (wideo + audio) | Sync lipsync-2 $0.04-0.05/s, lipsync-2-pro $0.067-0.083/s, sync-3 $0.107-0.133/s; VEED Lipsync v2 na fal $0.07/s [zweryfikowane: R03][sync-docs] | 10 s: $0.40-1.33 | S-M |
-| Mówiący awatar (obraz + audio lub tekst) | `heygen/heygen-video-1`: 5-15 s z dialogiem, $0.01-0.05/s [zweryfikowane][gw]; referencja audio w Seedance 2.5, Wan 3.0, H3 (czy steruje ustami: [niepewne], do testu); modele awatarów na fal (OmniHuman, Kling Avatar, VEED Fabric) [niepewne] | 15 s: $0.15-0.75 (HeyGen) | M |
+| Audio do niemego wideo | (a) video-to-audio na fal: `mirelo-ai/sfx2.0/video-to-audio` $0.010/s (cena promocyjna do 13.12.2026, potem $0.015/s; za sekundę wyjścia na próbkę), Mirelo SFX 1.5/1.6 $0.01/s (1.6 do 60 s), `fal-ai/mmaudio-v2` $0.001/s, `fal-ai/thinksound` $0.001 za sekundę obliczeń ([Mirelo 2.0][fal-mirelo], [MMAudio][fal-mmaudio], [ThinkSound][fal-thinksound]) [zweryfikowane]; (b) własne: 4-8 klatek do Claude vision, brief, efekty i muzyka, `amix` + `loudnorm` | (a) 10 s: $0.01-0.15; (b) ok. $0.07 za 10 s [wnioskowanie] | S-M |
+| Lipsync (wideo + audio) | Sync lipsync-2 $0.04-0.05/s, lipsync-2-pro $0.067-0.083/s, sync-3 $0.107-0.133/s [zweryfikowane: R03][sync-docs]; VEED Lipsync v2 na fal $0.07/s bez minimum ([fal][fal-veed-lipsync]); `fal-ai/latentsync` $0.005/s ([fal][fal-latentsync]) [zweryfikowane] | 10 s: $0.05-1.33 | S-M |
+| Mówiący awatar (obraz + audio lub tekst) | `heygen/heygen-video-1`: 5-15 s z dialogiem, $0.01-0.05/s [zweryfikowane][gw]; na fal: Kling AI Avatar v2 Standard $0.0562/s, Pro $0.115/s ([fal][fal-kling-avatar]); VEED Fabric 1.0 $0.08/s (480p), $0.15/s (720p) ([fal][fal-fabric]); ai-avatar (MultiTalk) $0.2/s ([fal][fal-ai-avatar]) [zweryfikowane]; OmniHuman 1.5 ok. $0.16/s i MiniMax H3 Max Lip Sync $0.05-0.32/s [zweryfikowane wtórnie]; referencja audio w Seedance 2.5, Wan 3.0, H3 (czy steruje ustami: [niepewne], do testu) | 15 s: $0.15-0.75 (HeyGen), $0.84-2.25 (Kling Avatar, Fabric) | M |
 | Dubbing | ElevenLabs Dubbing ok. $0.33/min [niepewne: R03], opcjonalny lipsync, mux | 60 s: $0.33 + $2.4-8 | M |
 | Klonowanie głosu | patrz niżej | zależnie od dostawcy | S + M (zgoda) |
 
 Opcja (b) dla niemego wideo nie zsynchronizuje dźwięku z konkretnym zdarzeniem w kadrze, więc do foley lepsza jest opcja (a). Awatary dłuższe niż limit modelu: ciąć audio na granicach zdań, generować segmenty z tego samego kadru i ukrywać szwy zmianą planu [wnioskowanie].
 
-**Przepływ zgody na klon głosu** [wnioskowanie; podstawa prawna: R06]: (1) nagranie w przeglądarce losowej frazy z kodem wyświetlonym na ekranie; (2) próbka 30-120 s; (3) porównanie mówcy z nagrania zgody i z próbki; (4) rekord wyraźnej zgody (wersja tekstu, czas, hash audio), bo próbka głosu to dane biometryczne; (5) utworzenie głosu u dostawcy i zapis `voice_id` w elemencie prywatnym dla workspace; (6) usuwanie na żądanie u dostawcy i u siebie; (7) brak klonowania z wgranych plików osób trzecich. ElevenLabs wymaga uprawnień do głosu i zgody osoby [zweryfikowane wtórnie: R03].
+**Przepływ zgody na klon głosu** [wnioskowanie; podstawa prawna: R06]: (1) nagranie w przeglądarce losowej frazy z kodem wyświetlonym na ekranie; (2) próbka 30-120 s; (3) porównanie mówcy z nagrania zgody i z próbki; (4) rekord wyraźnej zgody (wersja tekstu, czas, hash audio), bo próbka głosu to dane biometryczne; (5) utworzenie głosu u dostawcy i zapis `voice_id` w elemencie prywatnym dla workspace; (6) usuwanie na żądanie u dostawcy i u siebie; (7) brak klonowania z wgranych plików osób trzecich. ElevenLabs wymaga uprawnień do głosu i zgody osoby [zweryfikowane wtórnie: R03]; Professional Voice Cloning jest za "technologiczną weryfikacją" i dotyczy tylko własnego głosu, klonowanie głosów celebrytów jest blokowane (streszczenia polityk ElevenLabs, [polityka PVC][el-pvc], [zgoda][el-consent]) [zweryfikowane wtórnie]. Wniosek [wnioskowanie]: PVC przez API nie nadaje się do klonowania głosu użytkownika końcowego bez jego weryfikacji u ElevenLabs; w MVP tylko Instant Voice Clone z własnym przepływem zgody albo głosy z biblioteki. Czy warunki ElevenAPI pozwalają osadzać TTS, klonowanie i dubbing w produkcie sprzedawanym dalej: jedno źródło wtórne mówi, że nie wolno odsprzedawać samej usługi, a jedynie wygenerowane treści ([terms.law][el-terms-summary], [ElevenAPI Terms][el-api-terms]) [niepewne]; przed startem przeczytać pełne ElevenAPI Terms lub zapytać ElevenLabs.
 
 **Awarie:** twarz z profilu lub zasłonięta, kilku mówców w kadrze, wydłużenie tekstu po tłumaczeniu, separacja muzyki od głosu.
 
@@ -178,8 +194,8 @@ Opcja (b) dla niemego wideo nie zsynchronizuje dźwięku z konkretnym zdarzeniem
 | 4 | Skrypt | Claude: N konceptów `{hook, angle, voiceover[], shots[], on_screen_text[], cta, headline, primary_text}`; budżet ok. 2,5 słowa/s; flagi zgodności | $0.02-0.06 |
 | 5a | UGC z awatarem | kadr awatara z produktem (model edycji, dwie referencje), potem klip z mową: Seedance 2.5 z referencjami i audio albo HeyGen Video 1, albo TTS + lipsync | 15 s: $0.75-3.5 |
 | 5b | Ujęcie produktowe | packshot, I2V z presetem kamery, lektor TTS, muzyka | 5 s: $0.6-1.0 |
-| 6 | Napisy | transkrypcja (`elevenlabs/scribe-v2` ok. $0.22/h, Whisper $0.36/h [zweryfikowane][gw]) albo czasy ze skryptu; wypalenie przez ffmpeg (ASS) lub Remotion | grosze |
-| 7 | Proporcje | master 9:16; pochodne przez ponowną generację (najlepsze, xN), AI reframe [niepewne] albo kadrowanie ze śledzeniem obiektu i rozmytym tłem (ffmpeg) | zależnie |
+| 6 | Napisy | transkrypcja (`elevenlabs/scribe-v2` ok. $0.22/h, Whisper $0.36/h [zweryfikowane][gw]) albo czasy ze skryptu; Scribe v2 w API ElevenLabs zwraca czasy słów (`timestamps_granularity="word"`) [zweryfikowane][el-stt]; czy `transcribe` przez AI Gateway przekazuje czasy słów: [niepewne]; wypalenie przez ffmpeg (ASS) lub Remotion | grosze |
+| 7 | Proporcje | master 9:16; pochodne przez ponowną generację (najlepsze, xN), reframe obrazu na fal (`fal-ai/image-editing/reframe` $0.04, Luma Photon Flash Reframe $0.005/MP [zweryfikowane][fal-reframe]), reframe wideo (Luma Ray 2 Flash Reframe ok. $0.45 za generację, tylko źródło wtórne [niepewne]) albo kadrowanie ze śledzeniem obiektu i rozmytym tłem (ffmpeg) | zależnie |
 
 Higgsfield buduje UGC podobnie: plansze z modelu obrazu, klipy Seedance 2.5 z referencjami i natywnym audio, potem montaż i napisy [zweryfikowane: R02]. Jego Ads Studio ma brand kit (logo, paleta, ton), cel kampanii, formaty 1:1, 9:16, 16:9, 3:4 oraz wycenę wymagającą jawnej zgody przed generacją [zweryfikowane: MCP Higgsfield].
 
@@ -193,12 +209,13 @@ Higgsfield buduje UGC podobnie: plansze z modelu obrazu, klipy Seedance 2.5 z re
 |---|---|---|---|
 | Edycja instrukcją | Nano Banana 2.1, GPT Image 2.6, Seedream 5.0, FLUX Kontext Pro/Max; AI Gateway ma `POST /v1/images/edits` | $0.034-0.08 | [zweryfikowane][gw][gw-img] |
 | Inpaint z maską | FLUX.1 Fill [pro] | $0.05 | [zweryfikowane][gw] |
-| Outpaint | dopełnienie płótna + maska nowego obszaru, model fill | $0.05 | [wnioskowanie] |
-| Usuwanie tła | Bria RMBG 2.0 (fal), BiRefNet (Replicate); dla wideo ceny brak | ok. $0.018 / $0.0005 | [niepewne: R03] |
-| Relight, zamiana tła | model edycji ze strukturą (kierunek, temperatura, natężenie) zamienianą na tekst | $0.034-0.13 | [wnioskowanie] |
+| Outpaint | dopełnienie płótna + maska nowego obszaru, model fill; gotowe: `fal-ai/flux-2-pro/outpaint` (ok. $0.02-0.03, źródło wtórne), reframe obrazu $0.04 ([fal][fal-reframe]) | $0.03-0.05 | [wnioskowanie]; ceny fal [zweryfikowane wtórnie] |
+| Usuwanie tła (obraz) | Bria RMBG 2.0 (fal), BiRefNet (Replicate; na fal BiRefNet v2 ok. $0.0008 za sekundę obliczeń) | ok. $0.018 / $0.0005 | [niepewne: R03] |
+| Usuwanie tła (wideo) | fal: `bria/video/background-removal` $0.14/s; Bria VRMBG 3.0 $0.042-0.05/s (strony się różnią), wariant realtime $0.00425/s; VEED $0.015-0.0225 za 30 klatek; `fal-ai/birefnet/v2/video` rozliczany za czas obliczeń ([Bria][fal-bria-vbg], [VEED][fal-veed-vbg], [BiRefNet][fal-birefnet-video]) | 10 s: ok. $0.04-1.40 | [zweryfikowane] |
+| Relight, zamiana tła | obraz: `fal-ai/image-apps-v2/relighting` $0.04 ([fal][fal-relight]); wideo: `fal-ai/lightx/relight` $0.10 za sekundę wyjścia, `fal-ai/id-v2v/relight` (cena nie znaleziona) ([LightX][fal-lightx]); awaryjnie model edycji ze strukturą (kierunek, temperatura, natężenie) zamienianą na tekst | $0.04 za obraz; $1.00 za 10 s wideo | [zweryfikowane] |
 | Upscale obrazu | Topaz (`topaz/wonder-3.5` w katalogu bez ceny); parametry: wymiary wyjścia, wariant, twarze, sharpen, denoise [R02] | brak ceny | [zweryfikowane obecność] |
 | Upscale wideo | `topaz/starlight-precise-2.6`, `topaz/proteus`; wymagane dokładne metadane źródła, więc najpierw `ffprobe` | $0.059-0.124/s [niepewne: R03] | [zweryfikowane obecność][gw] |
-| Interpolacja klatek | Topaz albo RIFE/FILM na fal; awaryjnie ffmpeg `minterpolate` | brak danych | [niepewne] |
+| Interpolacja klatek | `fal-ai/rife/video` i `fal-ai/film/video` po $0.0013 za sekundę obliczeń (FILM lepszy przy dużym ruchu), Topaz Interpolate na fal (cena rośnie z fps i rozdzielczością); awaryjnie ffmpeg `minterpolate` ([RIFE][fal-rife], [FILM][fal-film]) | grosze za klip | [zweryfikowane] |
 | Deflicker | ffmpeg `deflicker` (tylko migotanie jasności); API | brak danych | [niepewne] |
 
 Każde narzędzie to wpis w rejestrze (`kind: utility`) i zwykłe zadanie. Standardowa edycja typu upscale lub usuwanie tła korzysta z wyjątku w art. 50 AI Act [R06]. **Trudność:** S za narzędzie; edytor maski w UI M.
@@ -281,7 +298,7 @@ Opcje [zweryfikowane: R03]: SAM 3D Objects na fal $0.02; Tripo $0.20-0.30; Hunyu
 | H7 Publikacja | ostrzejsza polityka, zgłoszenia i usuwanie [R06] | galeria, opublikowane "apps" |
 | H8 Audyt | hash promptu, flagi, decyzje, identyfikatory zgód, model i trasa | wszystkie |
 
-Haki działają jako middleware wokół `model.run`, więc obejmują presety, DAG i agenta bez dodatkowego kodu. W agencie i MCP egzekwuje je handler narzędzia, nigdy prompt. Higgsfield ma statusy zadań `nsfw` i `ip_detected` oraz `ip_checking` dla elementów [zweryfikowane: R02, MCP Higgsfield], czyli kontrola IP jest osobnym krokiem. Dostawcy moderacji nie zweryfikowałem [niepewne].
+Haki działają jako middleware wokół `model.run`, więc obejmują presety, DAG i agenta bez dodatkowego kodu. W agencie i MCP egzekwuje je handler narzędzia, nigdy prompt. Higgsfield ma statusy zadań `nsfw` i `ip_detected` oraz `ip_checking` dla elementów [zweryfikowane: R02, MCP Higgsfield], czyli kontrola IP jest osobnym krokiem. Dostawcy moderacji (stan 13.11.2026, szczegóły i źródła w [R05] sekcja (d)): OpenAI `omni-moderation` darmowy dla tekstu i obrazów wg większości źródeł; Google Vision SafeSearch ok. $1.50 za 1000 obrazów; AWS Rekognition ok. $0.001 za obraz i $0.10 za minutę wideo; Sightengine (Francja) od planu darmowego, ok. $1 za 1000 obrazów; Hive tylko na zapytanie [zweryfikowane wtórnie]. Ceny osobnych detektorów wieku i celebrytów oraz przetwarzanie w UE: [niepewne].
 
 ## 14. Graf zależności
 
@@ -351,11 +368,13 @@ Dwie usługi wspólne: `price_rules` (jednostka `second|image|chars|tokens|step|
 
 ## 17. Czego nie zweryfikowano
 
-- Identyfikatory i ceny fal dla: efektów i LoRA efektów, video-to-audio, modeli awatarów, interpolacji, relightu; zdolności Kling 4.0.
+Po weryfikacji 13.11.2026 nadal otwarte (video-to-audio, awatary, interpolacja, relight, usuwanie tła wideo, LoRA i cena Kling 4.0 na fal są już uzupełnione):
+- Ceny fal dla efektów i LoRA efektów, Seedream 5.5, Seedance 2.5, Kling 4.0 Flash; dedykowany reframe wideo; pełne zdolności Kling 4.0.
 - Czy referencja audio w Seedance 2.5, Wan 3.0 i H3 daje zsynchronizowaną mowę.
 - Typowe latencje (katalog zwraca puste pola).
-- Szczegóły API ElevenLabs dla dubbingu i klonowania; znaczniki czasu słów w `transcribe` przez AI Gateway.
-- Hostowane API kompozycji wideo, dostawcy moderacji, biblioteki UI canvasu.
+- Warunki ElevenAPI dla osadzania w produkcie i API dubbingu; czasy słów w `transcribe` przez AI Gateway.
+- Harmonogram ponowień webhooków fal; billing nieudanych generacji (fal i AI Gateway).
+- Hostowane API kompozycji wideo, ceny detektorów wieku i celebrytów u dostawców moderacji, biblioteki UI canvasu.
 
 ## Źródła
 
@@ -391,6 +410,34 @@ Raporty równoległe i ich źródła, na których polegam: [R02](02-katalog-mode
 [c-price]: https://platform.claude.com/docs/en/about-claude/pricing
 [sync-docs]: https://sync.so/docs/models/lipsync
 [remotion-sbx]: https://www.remotion.dev/docs/vercel-sandbox
+[fal-queue]: https://fal.ai/docs/documentation/model-apis/inference/queue
+[fal-webhooks]: https://fal.ai/docs/model-endpoints/webhooks
+[kling4-fal]: https://aireiter.com/blog/kling-4-0-api-pricing-fal-cost-vs-seedance-vidu
+[segmind-s55]: https://www.segmind.com/models/seedream-5.5/pricing
+[fal-flux-ft]: https://fal.ai/learn/devs/how-to-fine-tune-flux-with-the-api
+[fal-wan-trainer]: https://fal.ai/models/fal-ai/wan-22-trainer/t2v-a14b
+[fal-wan-ft]: https://fal.ai/learn/devs/how-to-fine-tune-wan-with-the-api
+[fal-mirelo]: https://fal.ai/models/mirelo-ai/sfx2.0/video-to-audio
+[fal-mmaudio]: https://fal.ai/models/fal-ai/mmaudio-v2
+[fal-thinksound]: https://fal.ai/models/fal-ai/thinksound/llms.txt
+[fal-veed-lipsync]: https://fal.ai/veed-lipsync-v2
+[fal-latentsync]: https://fal.ai/models/fal-ai/latentsync
+[fal-kling-avatar]: https://fal.ai/models/fal-ai/kling-video/ai-avatar/v2/pro
+[fal-fabric]: https://fal.ai/models/veed/fabric-1.0
+[fal-ai-avatar]: https://fal.ai/models/fal-ai/ai-avatar
+[fal-reframe]: https://fal.ai/models/fal-ai/image-editing/reframe/llms.txt
+[fal-bria-vbg]: https://fal.ai/models/bria/video/background-removal
+[fal-veed-vbg]: https://fal.ai/models/veed/video-background-removal
+[fal-birefnet-video]: https://fal.ai/models/fal-ai/birefnet/v2/video/llms.txt
+[fal-relight]: https://fal.ai/models/fal-ai/image-apps-v2/relighting/llms.txt
+[fal-lightx]: https://fal.ai/models/fal-ai/lightx/relight/llms.txt
+[fal-rife]: https://fal.ai/models/fal-ai/rife/video
+[fal-film]: https://fal.ai/models/fal-ai/film/video
+[el-stt]: https://elevenlabs.io/docs/overview/capabilities/speech-to-text.md
+[el-pvc]: https://conductatlas.com/platform/elevenlabs/elevenlabs-safety-policy/provision/CA-P-062107/professional-voice-cloning-verification-required/
+[el-consent]: https://conductatlas.com/platform/elevenlabs/elevenlabs-usage-policy/non-consensual-voice-cloning-prohibition/
+[el-terms-summary]: https://www.terms.law/ai-output-rights/elevenlabs/
+[el-api-terms]: https://elevenlabs.io/elevenapi-terms
 [R02]: 02-katalog-modeli-i-presetow.md
 [R03]: 03-dostawcy-modeli-i-api.md
 [R05]: 05-architektura-i-stack.md

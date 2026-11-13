@@ -2,11 +2,30 @@
 
 Metoda: 22 zapytania WebSearch plus dokumentacja pierwszej strony przez MCP (wyszukiwarka docs Vercel i Supabase). WebFetch był zablokowany, a wspólny limit WebSearch wyczerpał się w trakcie pracy. Dlatego Sentry, PostHog, Typesense/Meilisearch, next-intl, Expo, Modal, Cloudflare Containers i dostawcy moderacji NIE zostały sprawdzone na żywo i mają tag [niepewne]. Tagi: [zweryfikowane] = jest źródło z dzisiejszego odczytu, [wnioskowanie] = mój wniosek, [niepewne] = źródła sprzeczne, wtórne albo tylko moja wiedza sprzed połowy 2026.
 
+## Weryfikacja na żywo (2026-11-13)
+
+Drugi przebieg: dokumentacja Vercel i Supabase przez MCP, katalog AI Gateway przez MCP oraz 24 zapytania WebSearch (wspólne z raportem 09). WebFetch nadal blokowany (`vercel.com` nie rozwiązuje się w sesji).
+
+**Potwierdzone:**
+- Vercel Workflow jest **GA od 16.04.2026** (beta od 10.2025; ponad 100 mln runów przed GA), pakiet npm stabilny ([community.vercel.com][wf-ga-community], [devbytes][wf-ga-news]). Szczegółów cennika po GA nie znalazłem w wynikach; ceny z tabeli 1.2 pozostają z wcześniejszego odczytu docs.
+- Vercel Queues: nadal **Beta na wszystkich planach**, trigger `queue/v2beta` ([docs][v-queues]).
+- `maxDuration = 1800` (30 min) jest w dokumentacji pokazane **także dla route handlerów Next.js App Router** na Node.js/Bun ([duration][v-duration]); poprzedni wniosek "zakładać 800 s" był zbyt ostrożny.
+- Hobby: wyłącznie użytek niekomercyjny i osobisty; każde użycie komercyjne wymaga Pro lub Enterprise ([Hobby][v-hobby], [fair use][v-fairuse]).
+- Sandbox: maks. czas sesji na Pro i Enterprise **24 h** (changelog), Hobby 45 min; snapshoty z wygasaniem (domyślnie 30 dni, `0` = bez wygasania), sandboxy trwałe; 2048 MB pamięci na vCPU; do 10 000 równoległych sandboxów na Pro ([24 h][v-sbx-24h], [KB][v-sbx-kb], [SDK][v-sbx-sdk], [10k][v-sbx-10k]).
+- AI Gateway wideo: nadal `experimental_generateVideo`; webhook z eventami `video.generation.completed|failed|cancelled` bez URL-i wyniku; żądanie startowe do 300 KiB ([docs][v-gw-video]). **Kling 4.0 i Seedream 5.5 nie ma w katalogu AI Gateway** (najnowsze: `klingai/kling-v3.0-*`, `bytedance/seedream-5.0-pro`, `bytedance/seedance-2.5`) [zweryfikowane: katalog MCP].
+- Supabase: Broadcast from Database i Broadcast Authorization w statusie **public beta**, Broadcast i Postgres Changes GA ([statusy][s-features]); OAuth 2.1 Server **w becie, bezpłatny w becie na wszystkich planach** ([docs][s-oauth]); signed upload URL ważny 2 h ([docs][s-signed-upload]); Queues (pgmq) z gwarancją dostarczenia ([docs][s-queues]).
+- Cloudflare R2: presigned URL działają tylko na domenie S3 API (`<ACCOUNT_ID>.r2.cloudflarestorage.com`), nie na domenie własnej ([docs][r2-presigned]).
+- Remotion: darmowy dla osoby lub firmy do 3 pracowników; od 4 osób licencja firmowa od 100 USD/mies. ([cennik][remotion-price]).
+
+**Skorygowane:** limit 1800 s dla App Routera (wyżej); Sandbox Pro 24 h zamiast "5 h albo 24 h"; Inngest Pro 99 USD/mies. (1M wykonań), Free 50k; ceny Sentry, PostHog, Resend i moderacji uzupełnione (sekcje 1.4, (d), (g), tabela 3).
+
+**Nadal otwarte:** limit 4,5 MB body funkcji (nie znalazłem w docs MCP ani wyszukiwaniu); cennik Workflow po GA; czy AI Gateway nalicza nieudane lub zablokowane generacje wideo i jakie ma limity zapytań dla wideo; status GA Supabase Cron; Hive (cennik tylko na zapytanie); przetwarzanie w UE u dostawców moderacji.
+
 ## TL;DR
 
 - **Stack bazowy trzyma się kont, które już są:** Next.js 16.4 + React 19 na Vercel Pro (Fluid Compute, region `fra1`) oraz Supabase Pro w regionie UE (Postgres, Auth, Realtime, pg_cron, pgmq). [wnioskowanie]
 - **Media poza Supabase Storage:** Cloudflare R2 (0 USD za egress). Przy 10k MAU różnica to ok. 65 USD kontra 210-510 USD miesięcznie. [wnioskowanie na cenach zweryfikowanych]
-- **Zadania generacji:** źródłem prawdy jest maszyna stanów w Postgres; wykonawcą Vercel Workflow (`"use workflow"`, `createWebhook`, `sleep`), a niezależnym bezpiecznikiem sweeper w pg_cron. Orkiestrator za interfejsem, zamiennik: Trigger.dev. [wnioskowanie]
+- **Zadania generacji:** źródłem prawdy jest maszyna stanów w Postgres; wykonawcą Vercel Workflow (`"use workflow"`, `createWebhook`, `sleep`; GA od 16.04.2026 [zweryfikowane][wf-ga-community]), a niezależnym bezpiecznikiem sweeper w pg_cron. Orkiestrator za interfejsem, zamiennik: Trigger.dev. [wnioskowanie]
 - **Vercel AI Gateway obsługuje dziś obraz i wideo** (Veo, Kling, Wan, Seedance) z webhookiem i pollingiem, bez marży; AI SDK 7 ma stabilne `generateImage` i `generateSpeech`, a `experimental_generateVideo` wciąż eksperymentalne. [zweryfikowane]
 - **ffmpeg nie w Supabase Edge Functions** (2 s CPU, brak sharp/libvips) i niechętnie w funkcjach Vercel; rekomendacja: sharp w funkcji dla obrazów, Vercel Sandbox dla wideo. [zweryfikowane + wnioskowanie]
 - **Infrastruktura to ok. 2-4% kosztu inferencji:** ok. 80-190 USD/mies. przy 1k MAU i 570-1250 USD przy 10k MAU (przy założeniu średnio 0,15 USD inferencji na generację). Architekturę optymalizować pod niezawodność rozliczeń i śledzenie kosztu generacji, nie pod grosze na hostingu. [wnioskowanie]
@@ -26,15 +45,16 @@ Metoda: 22 zapytania WebSearch plus dokumentacja pierwszej strony przez MCP (wys
 
 | Element | Fakty | Tag |
 |---|---|---|
-| Fluid Compute | Domyślne dla nowych projektów od 23.04.2025. Max duration: Hobby 300 s; Pro/Enterprise domyślnie 300 s, max 800 s (GA), 1800 s w becie dla Node/Bun/Python, w docs opisane dla funkcji poza App Routerem. ([fluid][v-fluid], [duration][v-duration]) Dla route handlerów Next.js zakładać 800 s. | [zweryfikowane], ostatnie zdanie [wnioskowanie] |
-| Limity | Bundle funkcji 250 MB po rozpakowaniu ([docs][v-limits]). Region domyślny `iad1`, trzeba ustawić ręcznie ([docs][v-ts]). Limit 4,5 MB na body żądania: nie potwierdzony dziś. | [zweryfikowane]; body [niepewne] |
+| Fluid Compute | Domyślne dla nowych projektów od 23.04.2025. Max duration: Hobby 300 s; Pro/Enterprise domyślnie 300 s, max 800 s (GA), 1800 s w becie dla Node/Bun/Python. Docs pokazują `export const maxDuration = 1800` także w route handlerze Next.js App Router na Node.js/Bun ([fluid][v-fluid], [duration][v-duration]). Limit 1800 s jest w becie, więc długie kroki i tak trzymać w Workflow lub Sandbox. | [zweryfikowane] |
+| Limity | Bundle funkcji 250 MB po rozpakowaniu ([docs][v-limits]). Region domyślny `iad1`, trzeba ustawić ręcznie ([docs][v-ts]). Limit 4,5 MB na body żądania: nie znaleziony w docs ani wyszukiwaniu 13.11.2026; upload i tak idzie presigned PUT prosto do R2. | [zweryfikowane]; body [niepewne] |
+| Hobby | Tylko użytek niekomercyjny i osobisty; produkcja płatnego produktu wymaga Pro ([Hobby][v-hobby], [fair use][v-fairuse]). | [zweryfikowane] |
 | Cennik | Pro 20 USD/mies. z kredytem 20 USD; Active CPU od 0,128 USD/h, pamięć od 0,0106 USD/GB-h (źródła wtórne, [przegląd][usagepricing]). Flat Rate CDN (GA 09.2026): w Pro 1 TB i 1M żądań, wyższe progi 20/100/300 USD ([changelog][v-flatcdn]). | [zweryfikowane wtórnie] |
-| Workflow | `"use workflow"`, `"use step"`, `sleep`, `defineHook`, `createWebhook`; pakiet `workflow` 5.x; istnieje `@workflow/world-postgres` (przenośność). 50k zdarzeń/mies. w cenie, potem 0,02 USD/1k; 0,50 USD/GB zapisu i GB-mies. retencji; max 10k kroków i 25k zdarzeń na run. ([docs][v-wf], [cennik][v-wf-price]) Status GA nie potwierdzony. | [zweryfikowane]; status [niepewne] |
-| Queues | **Beta na wszystkich planach.** Retencja 60 s-7 dni (domyślnie 24 h), opóźnienie do 7 dni, visibility timeout do 60 min, klucz idempotencji, dostarczanie at-least-once ([docs][v-queues], [API][v-queues-api]). Cena od 0,60 USD/1M operacji, naliczanie w porcjach 4 KiB ([źródło wtórne][usagepricing]). | [zweryfikowane]; cena wtórnie |
+| Workflow | `"use workflow"`, `"use step"`, `sleep`, `defineHook`, `createWebhook`; pakiet `workflow` 5.x; istnieje `@workflow/world-postgres` (przenośność). 50k zdarzeń/mies. w cenie, potem 0,02 USD/1k; 0,50 USD/GB zapisu i GB-mies. retencji; max 10k kroków i 25k zdarzeń na run. ([docs][v-wf], [cennik][v-wf-price]) **GA od 16.04.2026** ([community.vercel.com][wf-ga-community], [devbytes][wf-ga-news]); Vercel zapowiadał wcześniej ogłoszenie ewentualnych zmian cen przy GA, a obecnego cennika po GA nie potwierdziłem. Opcje `experimental_retention` i `region` w `start()` ([retencja][v-wf-retention]). | status [zweryfikowane]; ceny po GA [niepewne] |
+| Queues | **Beta na wszystkich planach** (potwierdzone 13.11.2026, trigger `queue/v2beta`). Retencja 60 s-7 dni (domyślnie 24 h), opóźnienie do 7 dni, visibility timeout do 60 min, klucz idempotencji, dostarczanie at-least-once ([docs][v-queues], [API][v-queues-api]). Cena od 0,60 USD/1M operacji, naliczanie w porcjach 4 KiB ([źródło wtórne][usagepricing]). | [zweryfikowane]; cena wtórnie |
 | Cron | Cron Jobs oznaczone jako legacy, migracja do **Schedules** (`schedules` w `vercel.json`: strefa czasowa, jitter, cel: funkcja, ścieżka lub topic kolejki). ([docs][v-sched]) | [zweryfikowane] |
 | Blob | 0,023 USD/GB-mies., transfer 0,05 USD/GB, operacje 0,40 i 5,00 USD/1M; prywatne i publiczne w tej samej cenie; cache do 512 MB na obiekt. ([cennik][v-blob]) | [zweryfikowane] |
-| Sandbox | Active CPU 0,128 USD/vCPU-h, pamięć 0,0212 USD/GB-h, do 8 vCPU/16 GB; `apt-get install` przez sudo; polityka sieci `deny-all`; trwałe sandboxy ze snapshotami. Hobby: sesja do 45 min, 10 równolegle ([docs][v-sbx-harbor]). Max sesja Pro: źródła podają 5 h albo 24 h. ([docs][v-sbx], [firewall][v-sbx-fw], [cennik wtórny][sbx-price]) | [zweryfikowane]; limit Pro [niepewne] |
-| AI Gateway | Obraz: `generateImage`, `/v1/images/generations` (GPT Image 2, Flux, Recraft, Grok Imagine). Wideo: `experimental_generateVideo` z opcjami `webhook` i `poll`; żądanie startowe do 300 KiB, więc referencje jako URL. Ceny dostawcy bez marży; budżety na klucz API; raport kosztów `GET /v1/report` od Pro. Wideo w becie dla planów płatnych. ([wideo][v-gw-video], [obraz][v-gw-image], [Veo][v-gw-veo], [budżety][v-gw-budget]) | [zweryfikowane] |
+| Sandbox | Active CPU 0,128 USD/vCPU-h, pamięć 0,0212 USD/GB-h, do 8 vCPU/16 GB; `apt-get install` przez sudo; polityka sieci `deny-all`; trwałe sandboxy ze snapshotami (wygasanie domyślnie 30 dni, `0` = bez wygasania; `keepLastSnapshots`); pamięć 2048 MB na vCPU. Hobby: sesja do 45 min, 10 równolegle ([docs][v-sbx-harbor]). **Pro/Enterprise: sesja do 24 h** ([changelog][v-sbx-24h], [KB 06.2026][v-sbx-kb]; starsze strony docs podają jeszcze 5 h), do 10 000 równoległych ([changelog][v-sbx-10k]). Domyślny timeout 5 min, `extendTimeout()` do limitu planu. ([docs][v-sbx], [SDK][v-sbx-sdk], [firewall][v-sbx-fw], [cennik wtórny][sbx-price]) | [zweryfikowane] |
+| AI Gateway | Obraz: `generateImage`, `/v1/images/generations` (GPT Image 2, Flux, Recraft, Grok Imagine). Wideo: `experimental_generateVideo` z opcjami `webhook` i `poll`; żądanie startowe do 300 KiB, więc referencje jako URL. Ceny dostawcy bez marży; budżety na klucz API; raport kosztów `GET /v1/report` od Pro. Wideo w becie dla planów płatnych; API nadal `experimental_*`. Webhook wysyła `video.generation.completed`, `.failed`, `.cancelled` bez URL-a wyniku (wynik pobiera się osobno). Katalog 13.11.2026: brak Kling 4.0 i Seedream 5.5 (są Kling 3.0, Seedance 2.5, Seedream 5.0 Pro/Lite). ([wideo][v-gw-video], [obraz][v-gw-image], [Veo][v-gw-veo], [budżety][v-gw-budget]) Naliczanie nieudanych lub zablokowanych generacji i limity zapytań dla wideo: nie znalazłem w docs. | [zweryfikowane]; billing błędów [niepewne] |
 | BotID, Firewall | BotID Basic za darmo; Deep Analysis 1 USD/1000 wywołań `checkBotId()`, tylko Pro+. WAF rate limiting na wszystkich planach: Hobby 1 reguła, Pro 40 reguł i 0,50 USD/1M przepuszczonych żądań; ruch zablokowany nie jest naliczany. `checkRateLimit(id, { rateLimitKey })` z `@vercel/firewall`. ([BotID][v-botid], [WAF][v-waf], [SDK][v-waf-sdk]) | [zweryfikowane] |
 
 ### 1.3 Supabase
@@ -44,7 +64,7 @@ Metoda: 22 zapytania WebSearch plus dokumentacja pierwszej strony przez MCP (wys
 | Plany | Free: 2 projekty, 500 MB bazy, 1 GB plików, 5+5 GB egress, **pauza po 7 dniach niskiej aktywności**. Pro 25 USD/mies. za organizację: 100k MAU, 8 GB dysku, 100 GB plików, 250 GB egress uncached + 250 GB cached, 10 USD kredytu compute, brak pauzowania, Spend Cap domyślnie włączony. Od 05-06.2026 Supabase wdraża VAT tam, gdzie jest zarejestrowany; NIP UE w ustawieniach pozwala na reverse charge. ([billing][s-billing], [FAQ][s-faq], [pauzowanie][s-freepause]) | [zweryfikowane] |
 | Projekt wstrzymany | Dane zostają; przywrócenie jednym kliknięciem przez 90 dni, potem tylko pobranie backupu i plików ([docs][s-pause]). Status `INACTIVE` w API oznacza projekt wstrzymany: API i baza nie odpowiadają do czasu przywrócenia. Pod produkcję założyć projekt w regionie UE na planie Pro. | [zweryfikowane]; od `INACTIVE` [wnioskowanie] |
 | Storage | Plik do 50 MB (Free) lub 500 GB (Pro); TUS w kawałkach 6 MB; signed upload URL; protokół S3. Nadwyżki: 0,0213 USD/GB-mies., egress 0,09 (uncached) i 0,03 (cached) USD/GB. Transformacje obrazów: 5 USD za 1000 obrazów źródłowych ponad 100, max 25 MB i 50 MP. ([limity][s-filelimits], [TUS][s-tus], [egress][s-egress], [transformacje][s-img]) | [zweryfikowane] |
-| Realtime | Pro: 500 połączeń i 500 msg/s; bez Spend Cap 10 000 i 2 500. W cenie 5M wiadomości i 500 peak connections, potem 2,50 USD/1M i 10 USD/1000. Broadcast from Database i autoryzacja kanałów: public beta. ([limity][s-rt], [statusy][s-features]) | [zweryfikowane] |
+| Realtime | Pro: 500 połączeń i 500 msg/s; bez Spend Cap 10 000 i 2 500. W cenie 5M wiadomości i 500 peak connections, potem 2,50 USD/1M i 10 USD/1000. Broadcast from Database i autoryzacja kanałów: public beta (potwierdzone 13.11.2026; Broadcast, Presence i Postgres Changes: GA). ([limity][s-rt], [statusy][s-features]) | [zweryfikowane] |
 | Edge Functions | 256 MB, 150 s (Free) / 400 s (płatne) wall clock, **2 s CPU na żądanie**, bez sharp/libvips. ([limity][s-fn]) | [zweryfikowane] |
 | Auth | OAuth, magic link, SAML, CAPTCHA w GA; anonymous sign-ins z konwersją na konto stałe; **passkeys eksperymentalne** (supabase-js 2.105+, opt-in; zmiana RP ID unieważnia wszystkie passkeys). Przykłady w docs używają już kluczy publishable/secret. ([passkeys][s-passkeys], [anon][s-anon], [statusy][s-features]) | [zweryfikowane] |
 | Queues, Cron, Branching | pgmq (visibility timeout, archiwum), pg_cron z interwałem sekundowym, pg_net do wywołań HTTP ([queues][s-queues], [wzorzec][s-embed]). Branching w becie: od 0,01344 USD/h za gałąź Micro, poza Spend Cap. ([branching][s-branch]) | [zweryfikowane] |
@@ -53,8 +73,8 @@ Metoda: 22 zapytania WebSearch plus dokumentacja pierwszej strony przez MCP (wys
 
 | Narzędzie | Cennik | Uwagi | Tag |
 |---|---|---|---|
-| Inngest | Free 50k wykonań/mies., ok. 5 równoległych; Pro ok. 99 USD za 1M (część źródeł: 75) ([przegląd][inngest]) | Dojrzałe klucze współbieżności, kolejny dostawca | [niepewne] |
-| Trigger.dev | Free 5 USD kredytu, Hobby 10 USD, Pro 50 USD/mies.; compute od 0,0000169 USD/s (micro) do 0,00068 USD/s (large-2x) + 0,000025 USD za run; 20/50/200+ równoległych ([limity][trigger], [przegląd][trigger-price]) | Własne maszyny bez limitu czasu, nadaje się też do ffmpeg | [zweryfikowane wtórnie] |
+| Inngest | Hobby 0 USD: 50k wykonań kroków, 5 równoległych kroków, 500k zdarzeń/mies.; Pro **99 USD/mies.** z 1M wykonań i 100 równoległymi krokami; Business 499 USD (najnowsze źródła z 07-10.2026; starsze podają 75) ([przegląd 2026][inngest-2026], [przegląd][inngest]) | Dojrzałe klucze współbieżności, kolejny dostawca | [zweryfikowane wtórnie] |
+| Trigger.dev v4 | Free 0 USD, Hobby 10 USD, Pro 50 USD/mies.; opłata bazowa = kredyt na compute, potem stawki per sekunda; compute od 0,0000169 USD/s (micro) do 0,00068 USD/s (large-2x) + 0,000025 USD za run; równoległość: źródła podają 20/50/200+ albo 10/25/100+, na Pro dokupowana pakietami; Realtime: Hobby 150, Pro 1000 połączeń ([limity][trigger], [changelog Realtime][trigger-rt], [przegląd][trigger-price]) | Własne maszyny bez limitu czasu, nadaje się też do ffmpeg | [zweryfikowane wtórnie]; równoległość [niepewne] |
 | Upstash QStash / Workflow | 1 USD za 100k wiadomości lub kroków; 1000 dziennie za darmo ([QStash][qstash], [Workflow][upwf]) | Najtańsze, oparte o HTTP | [zweryfikowane] |
 | Cloudflare Queues / Workflows | Queues 0,40 USD/1M operacji; Workflows: rozliczanie per krok od 08.2026 (500k w cenie, 0,80 USD/100k) ([cennik][cf-workers]) | Sens tylko przy logice w Workers | [niepewne] |
 
@@ -76,7 +96,7 @@ Bezpieczniki: sweeper w pg_cron co minutę (zadania po `deadline_at`: ostatni po
 
 | Opcja | Plus | Minus |
 |---|---|---|
-| **Vercel Workflow (rekomendacja)** | Ten sam deploy i preview co aplikacja, ok. 0,0006 USD za generację (ok. 30 zdarzeń, [szacunek 3 zdarzeń na krok][render-wf]) | Młody produkt, status GA nie potwierdzony |
+| **Vercel Workflow (rekomendacja)** | Ten sam deploy i preview co aplikacja, GA od 04.2026, ok. 0,0006 USD za generację (ok. 30 zdarzeń, [szacunek 3 zdarzeń na krok][render-wf]) | Młody produkt (GA od kilku miesięcy), cennik po GA do sprawdzenia |
 | Tylko Postgres (pgmq + pg_cron + funkcje) | Zero nowych dostawców | Ręczne retry i timeouty |
 | Trigger.dev / Inngest | Dojrzała obserwowalność i kolejki per użytkownik | Osobny deploy, 50-99 USD/mies. |
 
@@ -91,7 +111,7 @@ Bezpieczniki: sweeper w pg_cron co minutę (zadania po `deadline_at`: ostatni po
 | **Cloudflare R2** | 0,015 | **0** | API S3, presigned URL; operacje 4,50 / 0,36 USD za 1M ([przegląd][r2]) |
 | Bunny Storage + CDN | 0,01 | 0,01 | Firma z UE, tokeny na CDN, Bunny Stream do HLS ([cennik][bunny]) |
 
-Rekomendacja: **R2 od pierwszego dnia**, trzy buckety (`uploads-private`, `outputs-private`, `public`), w bazie tylko `bucket + key`, nigdy pełny URL. Prywatne zasoby przez krótkie presigned GET, galeria przez własną subdomenę z cache. [wnioskowanie] Domena dla R2 musi być strefą w Cloudflare, a presigned URL nie działają na domenie własnej. [niepewne]
+Rekomendacja: **R2 od pierwszego dnia**, trzy buckety (`uploads-private`, `outputs-private`, `public`), w bazie tylko `bucket + key`, nigdy pełny URL. Prywatne zasoby przez krótkie presigned GET, galeria przez własną subdomenę z cache. [wnioskowanie] Presigned URL działają tylko na domenie S3 API (`<ACCOUNT_ID>.r2.cloudflarestorage.com`) i nie działają na domenie własnej ([docs R2][r2-presigned]) [zweryfikowane]. Wniosek: upload i prywatny odczyt przez presigned URL na domenie S3 (bez cache CDN), publiczna galeria przez domenę własną z cache. Że domena własna musi być strefą w Cloudflare i że tylko ona daje cache/WAF: źródła społeczności, nie docs [niepewne].
 
 Wideo: klipy 5-15 s jako **MP4 z `faststart`** i range requests; HLS (Mux ok. 0,0008 USD/min, Cloudflare Stream 1 USD/1000 min dostarczonych i 5 USD/1000 min przechowywanych, Bunny Stream, wg [porównania][video-cost]) dopiero przy treściach powyżej minuty. [wnioskowanie] Miniatury: 2-3 stałe warianty WebP generowane przy ingest; transformacje w locie w Supabase kosztowałyby ok. 700 USD za 140k obrazów. [wnioskowanie]
 
@@ -102,9 +122,9 @@ Wideo: klipy 5-15 s jako **MP4 z `faststart`** i range requests; HLS (Mux ok. 0,
 | Supabase Edge Functions | Odpada (2 s CPU, brak sharp) [zweryfikowane] |
 | Funkcja Vercel + `sharp` | Dobre dla obrazów [wnioskowanie] |
 | Funkcja Vercel + `ffmpeg-static` | Mieści się (ok. 76 MB z 250 MB), ale Vercel odradza i proces ma dostęp do sekretów ([analiza][ffmpeg-vercel]) |
-| **Vercel Sandbox** | Izolowana mikro-VM, `apt-get install ffmpeg` zamrożone w snapshocie, sieć `deny-all`; ok. 10 USD za 6k klipów [wnioskowanie] |
+| **Vercel Sandbox** | Izolowana mikro-VM, `apt-get install ffmpeg` (sudo) zamrożone w snapshocie, sieć `deny-all`, sesja do 24 h na Pro; ok. 10 USD za 6k klipów [wnioskowanie] |
 | Trigger.dev | Dobre, jeśli i tak jest orkiestratorem |
-| Remotion | Oficjalny render w Vercel Sandbox; darmowe do 3 pracowników ([docs][remotion-sbx], [licencja][remotion-lic]). Na później, do szablonów reklam |
+| Remotion | Oficjalny render w Vercel Sandbox; darmowe dla osoby lub firmy do 3 pracowników, od 4 osób licencja "Automators" od 100 USD/mies. (plus opcjonalne miejsca "Creators" ok. 25 USD) ([docs][remotion-sbx], [licencja][remotion-lic], [cennik][remotion-price]) [zweryfikowane]. Na później, do szablonów reklam |
 | Hostowane API ffmpeg, Modal, Cloudflare Containers | Nie zweryfikowane [niepewne] |
 
 Rekomendacja: sharp w kroku workflow dla obrazów; cały ffmpeg (poster, probe, trim, concat, mux audio, znak wodny) w Vercel Sandbox. [wnioskowanie]
@@ -116,7 +136,19 @@ Rekomendacja: sharp w kroku workflow dla obrazów; cały ffmpeg (poster, probe, 
 3. Moderacja NSFW/CSAM zanim zasób stanie się referencją: `pending → clean | rejected`.
 4. Import z URL tylko z ochroną przed SSRF.
 
-Klasyczny antywirus ma małą wartość po przekodowaniu; realne ryzyka to treści nielegalne, twarze osób trzecich i exploity dekoderów, stąd izolacja. [wnioskowanie] Wybór dostawcy moderacji: [niepewne].
+Klasyczny antywirus ma małą wartość po przekodowaniu; realne ryzyka to treści nielegalne, twarze osób trzecich i exploity dekoderów, stąd izolacja. [wnioskowanie]
+
+Dostawcy moderacji (stan 13.11.2026, głównie źródła wtórne):
+
+| Dostawca | Cena | Wideo | Uwagi | Tag |
+|---|---|---|---|---|
+| OpenAI `omni-moderation` | darmowy (tekst i obraz) wg większości źródeł | nie (klatki) | brak detekcji wieku i twarzy; jedno źródło przeczy, że jest darmowy | [niepewne] |
+| Google Cloud Vision SafeSearch | 1000 jednostek/mies. darmowo, potem ok. 1,50 USD za 1000 obrazów | nie (osobne Video Intelligence) | brak klasy "małoletni" | [zweryfikowane wtórnie] ([cennik][gcv-price]) |
+| AWS Rekognition | ok. 0,001 USD za obraz (niektóre źródła 0,00075 w pierwszym progu), wideo 0,10 USD/min (min. 1 min) | tak | ma region `eu-central-1`; od 30.04.2026 analiza strumieni i bulk image niedostępne dla nowych klientów | [zweryfikowane wtórnie] ([AWS blog][rek-blog]) |
+| Sightengine | plan darmowy (ok. 2000 operacji/mies.), płatne od ok. 29 USD/mies.; ok. 1 USD za 1000 obrazów; rozliczenie per operacja | tak | firma z Francji (UE); osobnych cen detekcji wieku i celebrytów nie znalazłem | [zweryfikowane wtórnie] ([cennik][sightengine]) |
+| Hive | cennik niepubliczny; konto developerskie z kredytem ok. 50 USD | tak | szeroka taksonomia, w tym CSAM; ceny na zapytanie | [niepewne] |
+
+Rekomendacja [wnioskowanie]: MVP na darmowym `omni-moderation` dla obrazów i klatek plus Sightengine (UE, wideo) jako drugi sygnał; dopasowanie hashy CSAM osobno (raport 06). Przetwarzanie w UE potwierdzić w DPA każdego dostawcy.
 
 ### (e) Model wielodostępny i RLS
 
@@ -137,7 +169,8 @@ Główny wektor to farmienie darmowych kredytów na wielu kontach. [wnioskowanie
 
 ### (g) Obserwowalność i koszt generacji
 
-- Sentry (błędy, tracing) i PostHog w chmurze UE (lejki, replay, flagi). Cenniki nie sprawdzone. [niepewne]
+- Sentry (błędy, tracing): Developer za darmo (5k błędów/mies., 14 dni retencji), Team 26 USD/mies. (część źródeł 2026: 29 USD) z 50k błędów, Business ok. 89 USD ([Capterra][sentry-price], [przegląd][sentry-price2]). [zweryfikowane wtórnie]
+- PostHog Cloud EU (AWS `eu-central-1`, Frankfurt; DPA dostępne): darmowe miesięcznie ok. 1M zdarzeń, 5k nagrań sesji, 1M zapytań o flagi, bez opłat za miejsca; dalej płatność za użycie ([cennik][posthog-price], [EU][posthog-eu]). [zweryfikowane]
 - Logi z `generation_id`, `workspace_id`, `provider_request_id`.
 - Na `generations`: `credits_held`, `credits_charged`, `provider`, `route_id`, `price_snapshot`, `provider_cost_usd`, `storage_bytes`, czasy etapów. Dzienna rekoncyliacja z raportami dostawców. Alerty: odsetek błędów per trasa, p95, liczba zadań zawieszonych, wydatek dzienny kontra przychód. [wnioskowanie]
 
@@ -147,7 +180,7 @@ Postgres wystarcza do ok. miliona postów: paginacja keyset po `(score, id)`, `t
 
 ### (i) i18n
 
-next-intl z segmentem `[locale]` (pl, en), negocjacja języka w `proxy.ts`, ICU (polskie formy mnogie), tłumaczenia presetów w tabeli `preset_translations`, hreflang i sitemap per język. Wersja next-intl i zgodność z Cache Components: [niepewne].
+next-intl z segmentem `[locale]` (pl, en), negocjacja języka w `proxy.ts`, ICU (polskie formy mnogie), tłumaczenia presetów w tabeli `preset_translations`, hreflang i sitemap per język. Zgodność z Cache Components jest częściowa: domyślnie next-intl czyta locale z `headers()`, co nie działa w `"use cache"`. Obejście: `experimental.rootParams` w Next.js i `rootParams.locale()` w `i18n/request.ts` (opisane na blogu next-intl), `generateStaticParams` z każdym locale, bez `setRequestLocale` i bez `Link` z next-intl w komponentach cache'owanych ([next-intl][nextintl-rootparams], [Next.js root params][next-rootparams], [demo][nextintl-cc-demo]). Status `rootParams` wewnątrz `"use cache"` w stabilnym Next.js: [niepewne]; przed wyborem zrobić spike na 16.4.
 
 ### (j) Testy i CI/CD
 
@@ -168,17 +201,17 @@ Założenia [wnioskowanie]: 1k MAU = 20k generacji, 70 GB nowych mediów, 350 GB
 | Komponent | Wybór | Dlaczego | 0 MAU | 1k MAU | 10k MAU |
 |---|---|---|---|---|---|
 | Framework | Next.js 16.4, React 19, TypeScript | Aktualna linia, Cache Components, `proxy.ts` | 0 | 0 | 0 |
-| Hosting | Vercel Pro, `fra1` (Hobby tylko na etap budowy) | Konto już jest; do 800 s | 0-20 | 20-40 | 100-250 |
+| Hosting | Vercel Pro, `fra1` (Hobby tylko na etap budowy bez użytkowników płacących: regulamin zabrania użycia komercyjnego) | Konto już jest; 800 s GA, 1800 s w becie | 0-20 | 20-40 | 100-250 |
 | Baza, Auth, Realtime | Supabase Pro, region UE | RLS, pg_cron, pgmq, brak pauzy | 0-25 | 25-35 | 75-200 |
-| Orkiestracja | Vercel Workflow + sweeper pg_cron | Jeden deploy, trwałe kroki i webhooki | 0 | ok. 11 | ok. 120 |
+| Orkiestracja | Vercel Workflow (GA od 04.2026) + sweeper pg_cron | Jeden deploy, trwałe kroki i webhooki | 0 | ok. 11 | ok. 120 |
 | Media | Cloudflare R2 + subdomena | Zero egress, API S3 | 0 | 1-6 | 60-90 |
 | Przetwarzanie | sharp + Vercel Sandbox (ffmpeg) | Izolacja, płatność za CPU | 0 | ok. 10 | ok. 100 |
 | Modele | Adaptery fal, AI Gateway, Replicate | Trasy per model, failover | poza tabelą | poza tabelą | poza tabelą |
 | Anty-abuse | Vercel Firewall, BotID, limity w Postgres | Bez nowego dostawcy | 0 | 1-10 | 10-40 |
-| Moderacja | API moderacji (do wyboru) | Wymóg prawny i dostawców | 0 | 0-20 | 50-200 [niepewne] |
-| Błędy | Sentry | Standard dla Next.js | 0 | 0-29 | 29-80 [niepewne] |
-| Analityka, flagi | PostHog EU | Jedno narzędzie | 0 | 0 | 0-100 [niepewne] |
-| E-mail | Własny SMTP w Supabase Auth ([docs][s-smtp]) | Dostarczalność | 0 | 0-20 | 20-40 [niepewne] |
+| Moderacja | OpenAI `omni-moderation` (darmowy) + Sightengine (UE, wideo) | Wymóg prawny i dostawców | 0 | 0-29 | 50-200 [wnioskowanie na cenach wtórnych] |
+| Błędy | Sentry (Developer free, Team 26-29 USD) | Standard dla Next.js | 0 | 0-29 | 29-89 |
+| Analityka, flagi | PostHog EU (Frankfurt) | Jedno narzędzie; 1M zdarzeń/mies. za darmo | 0 | 0 | 0-100 [wnioskowanie] |
+| E-mail | Resend jako SMTP Supabase Auth ([docs][s-smtp]); Free 3000/mies. i 100/dzień, Pro 50k/mies. ([cennik][resend-price]) | Dostarczalność | 0 | 0-20 | 20-40 [wnioskowanie] |
 | Search | Postgres FTS + pgvector | Wystarcza do ok. 1M postów | 0 | 0 | 0 |
 | CI/CD | GitHub Actions, preview Vercel, staging Supabase | Tani i przewidywalny | 0 | ok. 10 | 10-20 |
 | Mobile | PWA | Bez prowizji sklepów | 0 | 0 | 0 |
@@ -201,9 +234,13 @@ Założenia [wnioskowanie]: 1k MAU = 20k generacji, 70 GB nowych mediów, 350 GB
 
 ## 5. Czego nie udało się zweryfikować
 
-- Status GA Vercel Workflow, max sesja Sandbox na Pro, limit 4,5 MB body, zakaz użycia komercyjnego na Hobby.
-- Cenniki Sentry, PostHog, e-mail, Modal, Cloudflare Containers, moderacji; aktualne wersje next-intl i Expo.
-- Szczegóły R2 (własna domena, presigned URL) i integracji Supabase-Vercel dla branchingu.
+Po weryfikacji 13.11.2026 nadal otwarte:
+- Limit 4,5 MB body funkcji; cennik Vercel Workflow po GA; billing nieudanych i zablokowanych generacji wideo w AI Gateway oraz jego limity zapytań.
+- Cenniki Modal, Cloudflare Containers, Hive; przetwarzanie w UE u dostawców moderacji; aktualna wersja Expo; stabilność `rootParams` w `"use cache"` dla next-intl.
+- Cache R2 na domenie własnej (tylko źródła społeczności) i integracja Supabase-Vercel dla branchingu.
+- Status GA Supabase Cron (tabela statusów go nie wymienia).
+
+Zamknięte: status Workflow (GA), sesja Sandbox Pro (24 h), Hobby (zakaz komercji), presigned R2 (tylko domena S3), Sentry, PostHog, Resend, Inngest, Remotion.
 
 ## Źródła
 
@@ -275,3 +312,29 @@ Pozostałe: [Inngest][inngest], [Trigger.dev limits][trigger], [Trigger.dev pric
 [ffmpeg-vercel]: https://verygoodffmpeg.com/blog/vercel-ffmpeg-video-processing-serverless-functions-limits-2026
 [remotion-sbx]: https://www.remotion.dev/docs/vercel-sandbox
 [remotion-lic]: https://www.remotion.dev/docs/license
+[remotion-price]: https://www.remotion.dev/docs/license/pricing
+[wf-ga-community]: https://community.vercel.com/t/vercel-weekly-2026-04-20/38580
+[wf-ga-news]: https://devbytes.co.in/news/vercel-workflows-is-now-generally-available
+[v-wf-retention]: https://vercel.com/docs/workflows/retention
+[v-hobby]: https://vercel.com/docs/plans/hobby
+[v-fairuse]: https://vercel.com/docs/limits/fair-use-guidelines
+[v-sbx-24h]: https://vercel.com/changelog/vercel-sandbox-can-now-run-for-up-to-24-hours
+[v-sbx-kb]: https://vercel.com/kb/guide/vercel-sandbox-duration-and-persistence
+[v-sbx-10k]: https://vercel.com/changelog/vercel-sandbox-now-supports-10-000-concurrent-sandboxes-and-5-000-vcpus-per-minute
+[v-sbx-sdk]: https://vercel.com/docs/sandbox/sdk-reference
+[s-oauth]: https://supabase.com/docs/guides/auth/oauth-server/getting-started
+[s-signed-upload]: https://supabase.com/docs/reference/dart/file-buckets-createsigneduploadurl
+[r2-presigned]: https://developers.cloudflare.com/r2/api/s3/presigned-urls/
+[inngest-2026]: https://www.activepieces.com/blog/inngest-pricing-2026-plans-limits-and-overage-costs
+[trigger-rt]: https://trigger.dev/changelog/higher-realtime-limits
+[gcv-price]: https://cloud.google.com/vision/pricing
+[rek-blog]: https://aws.amazon.com/blogs/machine-learning/how-to-decide-between-amazon-rekognition-image-and-video-api-for-video-moderation
+[sightengine]: https://sightengine.com/pricing
+[sentry-price]: https://www.capterra.com/p/165426/Sentry/pricing/
+[sentry-price2]: https://cubeapm.com/blog/sentry-pricing-review/
+[posthog-price]: https://posthog.com/pricing
+[posthog-eu]: https://posthog.com/eu
+[resend-price]: https://resend.com/pricing
+[nextintl-rootparams]: https://next-intl.dev/blog/nextjs-root-params
+[next-rootparams]: https://nextjs.org/docs/app/api-reference/functions/next-root-params
+[nextintl-cc-demo]: https://github-users.yhajoa.workers.dev/aurorascharff/next-intl-cache-components
